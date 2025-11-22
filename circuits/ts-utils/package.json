@@ -1,0 +1,23 @@
+{
+  "name": "ts-utils",
+  "version": "1.0.0",
+  "description": "TypeScript utilities for Nydus protocol testing",
+  "main": "index.js",
+  "scripts": {
+    "test:dh": "ts-node test/dh-test.ts",
+    "test:enc": "ts-node test/poseidon-ctr-encryption-test.ts",
+    "build": "tsc",
+    "dev": "ts-node test/dh-test.ts"
+  },
+  "dependencies": {
+    "@aztec/foundation": "^1.2.1",
+    "@noble/curves": "^2.0.1",
+    "@zk-kit/baby-jubjub": "^1.0.3",
+    "bigint-crypto-utils": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}

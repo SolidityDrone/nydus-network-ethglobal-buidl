@@ -1,0 +1,11 @@
+[package]
+name = "noir_utils"
+type = "lib"
+authors = ["drone"]
+compiler_version = ">=1.0.0"
+version = "0.1.0"
+
+[dependencies]
+keccak256 = { path = "../keccak256" }
+
+

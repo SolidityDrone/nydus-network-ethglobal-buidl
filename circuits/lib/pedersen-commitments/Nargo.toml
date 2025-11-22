@@ -1,0 +1,9 @@
+[package]
+name = "pedersen_commitments"
+type = "lib"
+authors = ["Nydus Team"]
+compiler_version = ">=1.0.0"
+
+[dependencies]
+poseidon = { path = "../../lib/poseidon" }
+ec = { tag = "v0.1.2", git = "https://github.com/noir-lang/ec" }

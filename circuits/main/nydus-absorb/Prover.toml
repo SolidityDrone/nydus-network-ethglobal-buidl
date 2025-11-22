@@ -1,0 +1,59 @@
+user_key = "0xfedcba0987654321"
+
+previous_nonce = "0x00"
+
+current_balance = "0x96"
+
+token_address = "0x02"
+
+previous_spent_amount = "0x00"
+
+main_c_tot = ["0x0c0880127ac4604441c130f15ba15b0dc06a048cabff81891a8bb895f502d8c1", "0x26a897d5b6e1a805f8c10fcc1748873568f4681bc74313bbcd8b5a27e8301057"]
+
+main_c_inner = ["0x2ad226666a6ab8540588fd79894ae423a1b6d2fba4a1c48bb2c1675435a5b4de", "0x1c7ef092ef0fcac8f452e6fdc15a8b2c64d4e550738f5b53f7d87306508b9635"]
+
+main_c_outer = ["0x12a270d128a3e7d998532de4e7cc809244f16a021e0b788da1272e8d83a25d90", "0x2fd504ece72ab787120eef5d8513832360538a240b20878a7f4a232bb83af1a3"]
+
+inner_notes_count = "0x01"
+
+notes_c_tot = ["0x113f58c61a19ffb1fa98935f799fbbb2e2412043f2a88c6569d0cdfa605085e9", "0x2f1915b01b846da6a9e1daece5f357c1fb0e2e68538307f802c2682a203e704d"]
+
+notes_c_inner = ["0x2e54f00765bc8651971b17cd177022d1b4cc284c29eee471bacffe94a14f6c21", "0x27a1f6dca8a7f93593463f45a0cea259a85278e7f399a103215a0ca160225fe9"]
+
+notes_c_outer = ["0x0cb49d31d8c024b8da02ed6afc476b31873413b8107b5ee0971a1eb5a65e7845", "0x2629f05b7d5d4d29ba2fba3903cea3fb05f02b082a540de730be8009d69de051"]
+
+personal_c_tot = ["0x0f7d599a1d33bef69f3bc5ca56c724f02b142e652de022d0fc966b0d23c85e7e", "0x1c3812d7759d8be10a3b068f4f9d8c13efc55fb463a95f1e728a78488bd2a3c3"]
+
+personal_c_inner = ["0x1b71b3bcaa6bf8256ac473237a0104d8d4a8d57c35db12e1c86e1406474d4882", "0x128160268edbc3187e596614b4406e117fc0e3d1c8f8bf5c63c561d9a5dcf9ad"]
+
+personal_c_outer = ["0x0cc1cba84acaee32ed15c660a866c182b244d996739b6b4f2680b1739a7d80dc", "0x2fb6b7bda80026413a9a0124f48cc15b619bf0169896498fd501faa12c12bcf5"]
+
+main_c_inner_point = ["0x0158253b0d0278524fd7d245ea05358d1141042aa8bfcf7bfb52aa1a543d46e1", "0x2d84d91d656de505d31d24c2862244f0f327a84331f72e0d307ad0c44be556c7"]
+
+main_c_outer_point = ["0x1ddb4c0135384f6878a04f240aca70fec91e80a6820d0f044b99909139b5efa0", "0x201f3893ed0087d7d1ea749eb7821a80a927b0ebda8a3f5f7d8bf3dda76f017a", "0x029a"]
+
+notes_c_inner_point = ["0x64", "0x40"]
+
+notes_c_outer_point = ["0x0bd0e01a563a7b2bbd4b14702542d1e09ee93b4bd996f8c2d1502d05e7ac9941", "0x146a1e792e301e0c53e2422f11b3e09c9c4b58f849fc3aa1c34ea13cb8e02254", "0x01"]
+
+personal_c_inner_m = "0x96"
+
+personal_c_outer_m = "0x00"
+
+personal_c_outer_r = "0x02"
+
+nullifier = "0x00"
+
+relay_fee_token_address = "0x02"
+
+receiver_fee_amount = "0x0a"
+
+fee_token_personal_c_inner = ["0x1b71b3bcaa6bf8256ac473237a0104d8d4a8d57c35db12e1c86e1406474d4882", "0x128160268edbc3187e596614b4406e117fc0e3d1c8f8bf5c63c561d9a5dcf9ad"]
+
+fee_token_personal_c_outer = ["0x0cc1cba84acaee32ed15c660a866c182b244d996739b6b4f2680b1739a7d80dc", "0x2fb6b7bda80026413a9a0124f48cc15b619bf0169896498fd501faa12c12bcf5"]
+
+fee_token_personal_c_inner_m = "0x96"
+
+fee_token_personal_c_outer_m = "0x00"
+
+fee_token_personal_c_outer_r = "0x02"

@@ -1,0 +1,47 @@
+user_key = "0x1234567890abcdef"
+
+token_address = "0x02"
+
+amount = "0x32"
+
+previous_nonce = "0x00"
+
+main_c_tot = ["0x0a9ca2c5a18d4333045c4405c2a922628246671e20c2d4f72cc2694532c7bb7b", "0x0ce2a17e8b35ee455ebcd5d350aecc072076b6ac11ad32c65a359b5564d56fd1"]
+
+main_c_inner = ["0x1a94d1846fc84def5130bba70243c340159c577a5f97dcbd22dc5e39bc66e5cb", "0x1d522a90c4f6ddf428853162bfb7eec2bc5c1e49813bcc80b450c3594c2d0c6a"]
+
+main_c_outer = ["0x08f4157f1cf75f86a4549754aa6a65dec4a984873d8254511343d892163becd7", "0x27388883c1291e2709c59a13eaa53a32c00553e5bdb9908d0817df92deb20f90"]
+
+main_c_inner_point = ["0x07006bf4359e738891a58845beacd5feb34ba93ced4faf1753d21603a94a4625", "0x0a789cc5eb2ae5a0a490a8b4f50ce0c96167e563d71b6d11e2176a9dfc957521"]
+
+main_c_outer_point = ["0x15db0a12b2563d734efc5ff7272faa4994f511a98bc2736b9f63676e4b53c39d", "0x1046da9bd5fbf507ccb98bda054a14d18e4ad7ba14fb83154fc13a2d71199316", "0x029a"]
+
+personal_c_tot = ["0x2ccd9cbbc9734ae120de778ad612f0023b414ba4b15e548fe8121b8236a7aaf2", "0x0d9f543228c87528a93549ebadc25ee4041f5a589a65a5b8335a9a1541a72f38"]
+
+personal_c_inner = ["0x03bd0319d5b975efff69fcd59dfea8214db2f3df10ce9aa038d88aa8b4fe0ce4", "0x0d5f39404b8455f7632e330b0d1077f9499d791bf84ad41a1e642c699e4f5ce4"]
+
+personal_c_outer = ["0x0cc1cba84acaee32ed15c660a866c182b244d996739b6b4f2680b1739a7d80dc", "0x2fb6b7bda80026413a9a0124f48cc15b619bf0169896498fd501faa12c12bcf5"]
+
+personal_c_inner_m = "0x64"
+
+personal_c_outer_m = "0x00"
+
+personal_c_outer_r = "0x02"
+
+arbitrary_calldata_hash = "0x1234567890abcdef"
+
+receiver_address = "0x742d35cc6634c0532925a3b8d4c9db96c4b4d8b6"
+
+relay_fee_token_address = "0x03"
+
+receiver_fee_amount = "0x01"
+
+fee_token_personal_c_inner = ["0x0f3ca257acd1be8282961e4a15b6733fc264f4d7d1e5b305a67f0c7d0a4f8656", "0x1b0abdbb0d79ad5bda28d4731edd65623c85cb763dce21ccd840cbf8556d2d26"]
+
+fee_token_personal_c_outer = ["0x29c89b4749ee5efa9d967c7b8f0aedfddb379f363a220192f68a5639dfa309e6", "0x20d60bb496775e0a2a088ee7443eee9e59f2d310a627faa4efd5d70b22f72f2b"]
+
+fee_token_personal_c_inner_m = "0x0a"
+
+fee_token_personal_c_outer_m = "0x00"
+
+fee_token_personal_c_outer_r = "0x03"

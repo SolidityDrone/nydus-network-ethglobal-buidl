@@ -1,0 +1,51 @@
+{
+  "name": "nydus",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "pnpm run precompile && next build",
+    "precompile": "node scripts/precompile-circuit.js",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@aztec/bb.js": "0.82.2",
+    "@aztec/foundation": "1.2.1",
+    "@noble/curves": "2.0.1",
+    "@noir-lang/noir_js": "1.0.0-beta.3",
+    "@prisma/client": "^6.7.0",
+    "@reown/appkit": "^1.7.3",
+    "@reown/appkit-adapter-wagmi": "^1.7.3",
+    "@tanstack/react-query": "^5.74.4",
+    "@types/qrcode": "^1.5.6",
+    "@wagmi/core": "^2.15.0",
+    "@zk-kit/baby-jubjub": "1.0.3",
+    "bigint-crypto-utils": "3.3.0",
+    "buffer": "^6.0.3",
+    "clsx": "^2.1.1",
+    "html5-qrcode": "^2.3.8",
+    "json-rpc-2.0": "^1.7.0",
+    "lucide-react": "^0.554.0",
+    "next": "15.3.1",
+    "prisma": "^6.7.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.5.4",
+    "viem": "^2.23.2",
+    "wagmi": "^2.15.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

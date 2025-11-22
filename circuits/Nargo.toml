@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "main/nydus-entry",
+    "main/nydus-send", 
+    "main/nydus-absorb",
+    "lib/poseidon-ctr-encryption",
+    "lib/pedersen-commitments",
+    "main/nydus-deposit",
+    "main/nydus-withdraw"
+]
+
+compiler_version = "1.0.0-beta.3"
+
+target_dir = "./main"
