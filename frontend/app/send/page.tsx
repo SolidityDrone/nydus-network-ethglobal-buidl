@@ -25,6 +25,7 @@ import TransactionModal from '@/components/TransactionModal';
 import SyncingModal from '@/components/SyncingModal';
 import { useToast } from '@/components/Toast';
 import TokenSelector from '@/components/TokenSelector';
+import { generateProofRemote, checkProofServerStatus } from '@/lib/proof-server';
 
 export default function SendPage() {
     const { toast } = useToast();
@@ -64,6 +65,9 @@ export default function SendPage() {
     const [qrScannerOpen, setQrScannerOpen] = useState(false);
     const [isResolvingEns, setIsResolvingEns] = useState(false);
     const [ensResolutionError, setEnsResolutionError] = useState<string | null>(null);
+    const [proofMode, setProofMode] = useState<'local' | 'remote'>('local');
+    const [isCheckingServer, setIsCheckingServer] = useState(false);
+    const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
 
     // Handle QR code scan
     const handleQRScan = useCallback((data: { x: string; y: string }) => {
@@ -134,9 +138,14 @@ export default function SendPage() {
                         const { x, y } = parseZkAddress(zkAddress);
                         setReceiverPublicKeyX('0x' + x.toString(16));
                         setReceiverPublicKeyY('0x' + y.toString(16));
+
+                        // IMPORTANT: Update receiverZkAddress with the resolved zkAddress
+                        // so the circuit receives the correct format, not the ENS name
+                        setReceiverZkAddress(zkAddress);
+
                         setEnsResolutionError(null);
 
-                        toast(`ENS resolved: ${fullEnsName}`, 'success');
+                        toast(`ENS resolved: ${fullEnsName} → ${zkAddress}`, 'success');
                     } else {
                         setEnsResolutionError('No zkAddress found in ENS text records');
                         setReceiverPublicKeyX('');
@@ -156,6 +165,21 @@ export default function SendPage() {
         const timeoutId = setTimeout(resolveOrParse, 500); // Debounce
         return () => clearTimeout(timeoutId);
     }, [receiverZkAddress, toast]);
+
+    // Check proof server status when switching to remote mode
+    React.useEffect(() => {
+        if (proofMode === 'remote') {
+            setIsCheckingServer(true);
+            checkProofServerStatus().then((available) => {
+                setServerAvailable(available);
+                setIsCheckingServer(false);
+                if (!available) {
+                    toast('Proof server unavailable. Switching to local mode.', 'error');
+                    setProofMode('local');
+                }
+            });
+        }
+    }, [proofMode, toast]);
     const [localUserKey, setLocalUserKey] = useState<string>('');
     const [publicInputs, setPublicInputs] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -450,21 +474,30 @@ export default function SendPage() {
 
             console.log(`[Send] Receiver fee amount conversion: ${receiverFeeAmountFloat} (decimal) -> ${receiverFeeAmountInWei.toString()} (wei) = 0x${receiverFeeAmountInWei.toString(16)}`);
 
-            // Validate receiver zkAddress
-            if (!receiverZkAddress || !receiverZkAddress.trim()) {
-                throw new Error('Please enter receiver zkAddress');
-            }
-
-            // Parse zkAddress to get x and y coordinates
+            // Get x and y coordinates - either from already extracted values (ENS resolution) or parse from zkAddress
             let receiverPublicKeyXBigInt: bigint;
             let receiverPublicKeyYBigInt: bigint;
 
-            try {
-                const parsed = parseZkAddress(receiverZkAddress.trim());
-                receiverPublicKeyXBigInt = parsed.x;
-                receiverPublicKeyYBigInt = parsed.y;
-            } catch (error) {
-                throw new Error(`Invalid zkAddress format: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            // If we already have extracted coordinates (from ENS resolution), use those
+            if (receiverPublicKeyX && receiverPublicKeyY) {
+                try {
+                    receiverPublicKeyXBigInt = BigInt(receiverPublicKeyX);
+                    receiverPublicKeyYBigInt = BigInt(receiverPublicKeyY);
+                    console.log('Using pre-extracted coordinates from ENS resolution');
+                } catch (error) {
+                    throw new Error(`Invalid extracted coordinates: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+            } else if (receiverZkAddress && receiverZkAddress.trim()) {
+                // Otherwise, parse from zkAddress
+                try {
+                    const parsed = parseZkAddress(receiverZkAddress.trim());
+                    receiverPublicKeyXBigInt = parsed.x;
+                    receiverPublicKeyYBigInt = parsed.y;
+                } catch (error) {
+                    throw new Error(`Invalid zkAddress format: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+            } else {
+                throw new Error('Please enter receiver zkAddress or ENS name');
             }
 
             const tokensSame = tokenAddressBigInt === relayFeeTokenAddressBigInt;
@@ -1116,46 +1149,65 @@ export default function SendPage() {
             setProvingTime(null);
 
             const startTime = performance.now();
-            await initializeBackend();
-
-            if (!backendRef.current || !noirRef.current) {
-                throw new Error('Failed to initialize backend');
-            }
 
             // Calculate circuit inputs dynamically
             const inputs = await calculateCircuitInputs();
 
-            //@ts-ignore
-            const { witness } = await noirRef.current!.execute(inputs, { keccak: true });
-            console.log('Circuit execution result:', witness);
+            let proofHex: string;
+            let publicInputsHex: string[];
 
-            //@ts-ignore
-            const proofResult = await backendRef.current!.generateProof(witness, { keccak: true });
-            console.log('Generated proof:', proofResult);
-            const proofHex = Buffer.from(proofResult.proof).toString('hex');
+            if (proofMode === 'remote') {
+                // Remote proof generation
+                console.log('🌐 Generating proof remotely...');
+                const result = await generateProofRemote('send', inputs);
+                proofHex = result.proof;
+                publicInputsHex = result.publicInputs.slice(0, 28); // Slice to 28 for send
+                const provingTimeMs = result.timing.total;
+                setProvingTime(provingTimeMs);
+                console.log('✅ Remote proof generated successfully');
+                console.log(`Total proving time: ${provingTimeMs}ms (execution: ${result.timing.execution}ms, proving: ${result.timing.proving}ms)`);
+            } else {
+                // Local proof generation
+                console.log('💻 Generating proof locally...');
+                await initializeBackend();
 
-            // Extract public inputs from proof result and slice to 30 elements
-            const publicInputsArray = (proofResult.publicInputs || []).slice(0, 28);
-            const publicInputsHex = publicInputsArray.map((input: any) => {
-                if (typeof input === 'string' && input.startsWith('0x')) {
-                    return input;
+                if (!backendRef.current || !noirRef.current) {
+                    throw new Error('Failed to initialize backend');
                 }
-                if (typeof input === 'bigint') {
-                    return `0x${input.toString(16).padStart(64, '0')}`;
-                }
-                const hex = BigInt(input).toString(16);
-                return `0x${hex.padStart(64, '0')}`;
-            });
 
-            const endTime = performance.now();
-            const provingTimeMs = Math.round(endTime - startTime);
-            setProvingTime(provingTimeMs);
+                //@ts-ignore
+                const { witness } = await noirRef.current!.execute(inputs, { keccak: true });
+                console.log('Circuit execution result:', witness);
+
+                //@ts-ignore
+                const proofResult = await backendRef.current!.generateProof(witness, { keccak: true });
+                console.log('Generated proof:', proofResult);
+                proofHex = Buffer.from(proofResult.proof).toString('hex');
+
+                // Extract public inputs from proof result and slice to 28 elements
+                const publicInputsArray = (proofResult.publicInputs || []).slice(0, 28);
+                publicInputsHex = publicInputsArray.map((input: any) => {
+                    if (typeof input === 'string' && input.startsWith('0x')) {
+                        return input;
+                    }
+                    if (typeof input === 'bigint') {
+                        return `0x${input.toString(16).padStart(64, '0')}`;
+                    }
+                    const hex = BigInt(input).toString(16);
+                    return `0x${hex.padStart(64, '0')}`;
+                });
+
+                const endTime = performance.now();
+                const provingTimeMs = Math.round(endTime - startTime);
+                setProvingTime(provingTimeMs);
+                console.log('✅ Local proof generated successfully');
+                console.log(`Total proving time: ${provingTimeMs}ms`);
+            }
+
             setProof(proofHex);
             setPublicInputs(publicInputsHex);
-
-            console.log('Proof generated successfully:', proofHex);
-            console.log('Public inputs (sliced to 30):', publicInputsHex);
-            console.log(`Total proving time: ${provingTimeMs}ms`);
+            console.log('Proof:', proofHex);
+            console.log('Public inputs:', publicInputsHex);
 
         } catch (error) {
             console.error('Error generating proof:', error);
@@ -1773,6 +1825,56 @@ export default function SendPage() {
                                                 />
                                             </div>
                                         </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Proof Mode Toggle */}
+                            {zkAddress && !proof && (
+                                <Card className="border-[#333333] bg-[#0a0a0a]">
+                                    <CardContent className="pt-4">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs sm:text-sm font-mono font-bold text-white uppercase">
+                                                PROOF GENERATION MODE
+                                            </label>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => setProofMode('local')}
+                                                    variant={proofMode === 'local' ? 'default' : 'outline'}
+                                                    size="sm"
+                                                    className={`text-xs h-7 px-3 font-mono ${proofMode === 'local'
+                                                            ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
+                                                            : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
+                                                        }`}
+                                                >
+                                                    LOCAL
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => setProofMode('remote')}
+                                                    variant={proofMode === 'remote' ? 'default' : 'outline'}
+                                                    size="sm"
+                                                    disabled={isCheckingServer || serverAvailable === false}
+                                                    className={`text-xs h-7 px-3 font-mono ${proofMode === 'remote'
+                                                            ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
+                                                            : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
+                                                        }`}
+                                                >
+                                                    {isCheckingServer ? 'CHECKING...' : 'REMOTE'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        {proofMode === 'remote' && serverAvailable === false && (
+                                            <p className="mt-2 text-[10px] sm:text-xs font-mono text-red-500 uppercase">
+                                                PROOF SERVER UNAVAILABLE
+                                            </p>
+                                        )}
+                                        {proofMode === 'remote' && serverAvailable === true && (
+                                            <p className="mt-2 text-[10px] sm:text-xs font-mono text-[rgba(182,255,62,1)] uppercase">
+                                                ✓ PROOF SERVER CONNECTED
+                                            </p>
+                                        )}
                                     </CardContent>
                                 </Card>
                             )}

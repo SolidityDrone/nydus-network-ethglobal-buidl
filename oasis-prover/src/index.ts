@@ -1,13 +1,18 @@
 import express, { Request, Response } from 'express';
+import cors from 'cors';
 import { config } from './config';
 import { logger } from './utils/logger';
-import { createGreeting, createApiResponse } from './utils/response';
-import subnameRoutes from './routes/subname';
-import erc20Router from './routes/erc20';
+import { createGreeting } from './utils/response';
+import proofRouter, { preloadCircuits } from './routes/proof';
 
 const app = express();
 
 // Middleware
+app.use(cors({
+    origin: '*', // Allow all origins for TEE deployment
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -18,8 +23,7 @@ app.use((req: Request, res: Response, next) => {
 });
 
 // Routes
-app.use('/api', subnameRoutes);
-app.use('/api/erc20', erc20Router);
+app.use('/api/proof', proofRouter);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -27,14 +31,14 @@ app.get('/health', (req: Request, res: Response) => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        service: 'oasis-middleman',
+        service: 'nydus-proof-server',
         version: '1.0.0',
     });
 });
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
-    res.json(createGreeting('🚀 Oasis TEE TDX Middleman Backend - Ready!'));
+    res.json(createGreeting('🔐 Nydus Proof Server - Ready!'));
 });
 
 // Error handling middleware
@@ -48,16 +52,17 @@ app.use((err: Error, req: Request, res: Response, next: express.NextFunction) =>
 });
 
 // Start server
-app.listen(config.port, () => {
+app.listen(config.port, async () => {
     logger.info(`🚀 Server is running on port ${config.port}`);
     logger.info(`📝 Environment: ${config.nodeEnv}`);
     logger.info(`🐳 Running in Docker: ${config.isDocker ? 'Yes' : 'No'}`);
+    
+    // Preload circuits on startup
+    await preloadCircuits();
+    
     logger.info(`\n🌐 Available endpoints:`);
-    logger.info(`   POST http://localhost:${config.port}/api/register`);
-    logger.info(`   GET http://localhost:${config.port}/api/names`);
-    logger.info(`   GET http://localhost:${config.port}/api/monitoring-status`);
-    logger.info(`   GET http://localhost:${config.port}/api/monitoring-details`);
-    logger.info(`   POST http://localhost:${config.port}/api/derive-address`);
-    logger.info(`   GET http://localhost:${config.port}/health`);
+    logger.info(`   GET  http://localhost:${config.port}/api/proof/status`);
+    logger.info(`   POST http://localhost:${config.port}/api/proof/generate`);
+    logger.info(`   GET  http://localhost:${config.port}/health`);
 });
 

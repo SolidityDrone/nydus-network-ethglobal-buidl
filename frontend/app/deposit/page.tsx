@@ -24,6 +24,7 @@ import TransactionModal from '@/components/TransactionModal';
 import SyncingModal from '@/components/SyncingModal';
 import { useToast } from '@/components/Toast';
 import TokenSelector from '@/components/TokenSelector';
+import { generateProofRemote, checkProofServerStatus } from '@/lib/proof-server';
 
 export default function DepositPage() {
     const { toast } = useToast();
@@ -65,6 +66,9 @@ export default function DepositPage() {
     const [error, setError] = useState<string | null>(null);
     const [isProving, setIsProving] = useState(false);
     const [proof, setProof] = useState<string>('');
+    const [proofMode, setProofMode] = useState<'local' | 'remote'>('local');
+    const [isCheckingServer, setIsCheckingServer] = useState(false);
+    const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
     const [proofError, setProofError] = useState<string | null>(null);
     const [provingTime, setProvingTime] = useState<number | null>(null);
     const [currentProvingTime, setCurrentProvingTime] = useState<number>(0);
@@ -1179,30 +1183,47 @@ export default function DepositPage() {
             setProvingTime(null);
 
             const startTime = performance.now();
-            await initializeBackend();
-
-            if (!backendRef.current || !noirRef.current) {
-                throw new Error('Failed to initialize backend');
-            }
 
             // Calculate circuit inputs dynamically
             const inputs = await calculateCircuitInputs();
 
-            //@ts-ignore
-            const { witness } = await noirRef.current!.execute(inputs, { keccak: true });
-            console.log('Circuit execution result:', witness);
+            let proofHex: string;
+            let publicInputsHex: string[];
 
-            //@ts-ignore
-            const proofResult = await backendRef.current!.generateProof(witness, { keccak: true });
-            console.log('Generated proof:', proofResult);
-            const proofHex = Buffer.from(proofResult.proof).toString('hex');
+            if (proofMode === 'remote') {
+                // Remote proof generation
+                console.log('🌐 Generating proof remotely...');
+                const result = await generateProofRemote('deposit', inputs);
+                proofHex = result.proof;
+                publicInputsHex = result.publicInputs.slice(0, 16); // Slice to 16 for deposit
+                const provingTimeMs = result.timing.total;
+                setProvingTime(provingTimeMs);
+                console.log('✅ Remote proof generated successfully');
+                console.log(`Total proving time: ${provingTimeMs}ms (execution: ${result.timing.execution}ms, proving: ${result.timing.proving}ms)`);
+            } else {
+                // Local proof generation
+                console.log('💻 Generating proof locally...');
+                await initializeBackend();
 
-            // Extract public inputs from proof result and slice to 16 elements (circuit has 16 public inputs)
-            // Public inputs: token_address(1) + amount(1) + mainCommitmentReference(2) + newNonceCommitment(1) 
-            //                + newMainCommitment(2) + encrypted_note(5) + nonceDiscoveryEntry(2) + enc_x(1) + enc_y(1) = 16 total
-            const publicInputsArray = (proofResult.publicInputs || []).slice(0, 16);
-            // Convert public inputs to hex strings (bytes32 format)
-            const publicInputsHex = publicInputsArray.map((input: any) => {
+                if (!backendRef.current || !noirRef.current) {
+                    throw new Error('Failed to initialize backend');
+                }
+
+                //@ts-ignore
+                const { witness } = await noirRef.current!.execute(inputs, { keccak: true });
+                console.log('Circuit execution result:', witness);
+
+                //@ts-ignore
+                const proofResult = await backendRef.current!.generateProof(witness, { keccak: true });
+                console.log('Generated proof:', proofResult);
+                proofHex = Buffer.from(proofResult.proof).toString('hex');
+
+                // Extract public inputs from proof result and slice to 16 elements (circuit has 16 public inputs)
+                // Public inputs: token_address(1) + amount(1) + mainCommitmentReference(2) + newNonceCommitment(1) 
+                //                + newMainCommitment(2) + encrypted_note(5) + nonceDiscoveryEntry(2) + enc_x(1) + enc_y(1) = 16 total
+                const publicInputsArray = (proofResult.publicInputs || []).slice(0, 16);
+                // Convert public inputs to hex strings (bytes32 format)
+                publicInputsHex = publicInputsArray.map((input: any) => {
                 // Handle different input types
                 if (typeof input === 'string' && input.startsWith('0x')) {
                     return input;
@@ -1215,15 +1236,17 @@ export default function DepositPage() {
                 return `0x${hex.padStart(64, '0')}`;
             });
 
-            const endTime = performance.now();
-            const provingTimeMs = Math.round(endTime - startTime);
-            setProvingTime(provingTimeMs);
+                const endTime = performance.now();
+                const provingTimeMs = Math.round(endTime - startTime);
+                setProvingTime(provingTimeMs);
+                console.log('✅ Local proof generated successfully');
+                console.log(`Total proving time: ${provingTimeMs}ms`);
+            }
+
             setProof(proofHex);
             setPublicInputs(publicInputsHex);
-
-            console.log('Proof generated successfully:', proofHex);
-            console.log('Public inputs (sliced to 16):', publicInputsHex);
-            console.log(`Total proving time: ${provingTimeMs}ms`);
+            console.log('Proof:', proofHex);
+            console.log('Public inputs:', publicInputsHex);
 
         } catch (error) {
             console.error('Error generating proof:', error);
@@ -1738,6 +1761,58 @@ export default function DepositPage() {
                                                         <p className="text-xs sm:text-sm font-mono text-[#888888] uppercase break-words">
                                                             PLEASE VISIT ACCOUNT FIRST TO COMPUTE YOUR CURRENT NONCE
                                                         </p>
+                                                    </CardContent>
+                                                </Card>
+                                            )}
+
+                                            {/* Proof Mode Toggle */}
+                                            {zkAddress && !proof && (
+                                                <Card className="border-[#333333] bg-[#0a0a0a]">
+                                                    <CardContent className="pt-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-xs sm:text-sm font-mono font-bold text-white uppercase">
+                                                                PROOF GENERATION MODE
+                                                            </label>
+                                                            <div className="flex items-center gap-2">
+                                                                <Button
+                                                                    type="button"
+                                                                    onClick={() => setProofMode('local')}
+                                                                    variant={proofMode === 'local' ? 'default' : 'outline'}
+                                                                    size="sm"
+                                                                    className={`text-xs h-7 px-3 font-mono ${
+                                                                        proofMode === 'local'
+                                                                            ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
+                                                                            : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
+                                                                    }`}
+                                                                >
+                                                                    LOCAL
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    onClick={() => setProofMode('remote')}
+                                                                    variant={proofMode === 'remote' ? 'default' : 'outline'}
+                                                                    size="sm"
+                                                                    disabled={isCheckingServer || serverAvailable === false}
+                                                                    className={`text-xs h-7 px-3 font-mono ${
+                                                                        proofMode === 'remote'
+                                                                            ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
+                                                                            : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
+                                                                    }`}
+                                                                >
+                                                                    {isCheckingServer ? 'CHECKING...' : 'REMOTE'}
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                        {proofMode === 'remote' && serverAvailable === false && (
+                                                            <p className="mt-2 text-[10px] sm:text-xs font-mono text-red-500 uppercase">
+                                                                PROOF SERVER UNAVAILABLE
+                                                            </p>
+                                                        )}
+                                                        {proofMode === 'remote' && serverAvailable === true && (
+                                                            <p className="mt-2 text-[10px] sm:text-xs font-mono text-[rgba(182,255,62,1)] uppercase">
+                                                                ✓ PROOF SERVER CONNECTED
+                                                            </p>
+                                                        )}
                                                     </CardContent>
                                                 </Card>
                                             )}

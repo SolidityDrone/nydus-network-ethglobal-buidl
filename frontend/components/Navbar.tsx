@@ -24,6 +24,7 @@ const allNavigation = [
     { name: 'Absorb', href: '/absorb', icon: '💫' },
     { name: 'History', href: '/history', icon: '📜' },
     { name: 'Naming', href: '/naming', icon: '🏷️' },
+    { name: 'Verification', href: '/verification', icon: '✅' },
 ];
 
 export default function Navbar() {
