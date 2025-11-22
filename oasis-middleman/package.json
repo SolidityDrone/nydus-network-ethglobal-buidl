@@ -10,7 +10,8 @@
     "watch": "tsc --watch",
     "test:subname": "ts-node src/scripts/test-subname.ts",
     "monitor:transfers": "ts-node src/scripts/monitor-transfers.ts",
-    "test:stealth": "ts-node src/scripts/test-stealth-rotation.ts"
+    "test:stealth": "ts-node src/scripts/test-stealth-rotation.ts",
+    "test:send": "ts-node src/scripts/test-send-transaction.ts"
   },
   "keywords": [
     "oasis",

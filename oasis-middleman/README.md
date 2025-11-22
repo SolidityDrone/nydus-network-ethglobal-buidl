@@ -67,6 +67,22 @@ Complete integration test:
    - Rotates stealth address (increments nonce, updates ENS resolution)
    - Exits after first transfer
 
+### Test Send Transaction
+
+```bash
+pnpm run test:send
+```
+
+Demonstrates a full send transaction flow (matching frontend send/page.tsx):
+1. Derives `user_key` from `PRIVATE_KEY` signature using Poseidon2
+2. Computes zkAddress (public key) using Baby Jubjub
+3. Loads account data from Nydus contract (nonce discovery)
+4. (TODO) Reconstructs personal commitment states
+5. (TODO) Generates send proof for 0 USDC with 0 USDC fee
+6. (TODO) Submits transaction to Nydus contract
+
+**Token Address**: USDC on Base Sepolia (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`)
+
 ## Environment Variables
 
 - `JUSTNAME_API_KEY` - JustaName API key (required)

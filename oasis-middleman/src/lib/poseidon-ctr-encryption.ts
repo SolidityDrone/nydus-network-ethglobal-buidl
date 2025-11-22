@@ -1,5 +1,3 @@
-const { poseidon2Hash } = require('@aztec/foundation/crypto');
-
 /**
  * TypeScript implementation of Poseidon CTR Mode Encryption
  * 
@@ -9,11 +7,23 @@ const { poseidon2Hash } = require('@aztec/foundation/crypto');
  * Matches the Noir implementation in circuits/lib/poseidon-ctr-encryption/src/lib.nr
  */
 
+// Lazily load poseidon2Hash to avoid ESM import issues
+let poseidon2HashFn: any = null;
+
+async function getPoseidon2Hash() {
+  if (!poseidon2HashFn) {
+    const aztecCrypto = await eval(`import('@aztec/foundation/crypto')`);
+    poseidon2HashFn = aztecCrypto.poseidon2Hash;
+  }
+  return poseidon2HashFn;
+}
+
 /**
  * Generate a keystream using Poseidon with shared_key and nonce
  */
 export async function poseidonKeystream(sharedKey: bigint, nonce: number): Promise<bigint> {
     // Use Poseidon2 to hash shared_key and nonce
+    const poseidon2Hash = await getPoseidon2Hash();
     const result = await poseidon2Hash([sharedKey, BigInt(nonce)]);
 
     // Convert result to bigint

@@ -96,12 +96,14 @@ export async function isNydusInitialized(publicKeyX: bigint, publicKeyY: bigint)
  */
 export async function initializeNydusPosition(
   privateKey: bigint,
-  publicKey: { x: bigint; y: bigint }
+  publicKey: { x: bigint; y: bigint },
+  walletClient: any,
+  publicClient: any
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
     // Dynamic import of the actual implementation from nydus-utils
     const nydusUtils = await import('./nydus-utils');
-    return await nydusUtils.initializeNydusPosition(privateKey, publicKey);
+    return await nydusUtils.initializeNydusPosition(privateKey, publicKey, walletClient, publicClient);
   } catch (error) {
     logger.error('Error in initializeNydusPosition wrapper', { error });
     return {
@@ -119,12 +121,14 @@ export async function depositToNydus(
   privateKey: bigint,
   tokenAddress: string,
   amount: bigint,
-  fromAddress: string
+  fromAddress: string,
+  walletClient: any,
+  publicClient: any
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
     // Dynamic import of the actual implementation from nydus-utils
     const nydusUtils = await import('./nydus-utils');
-    return await nydusUtils.depositToNydus(privateKey, tokenAddress, amount, fromAddress);
+    return await nydusUtils.depositToNydus(privateKey, tokenAddress, amount, fromAddress, walletClient, publicClient);
   } catch (error) {
     logger.error('Error in depositToNydus wrapper', { error });
     return {

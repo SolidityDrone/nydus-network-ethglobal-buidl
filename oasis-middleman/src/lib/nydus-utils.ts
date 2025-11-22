@@ -150,7 +150,9 @@ export async function isNydusInitialized(publicKeyX: bigint, publicKeyY: bigint)
  */
 export async function initializeNydusPosition(
   privateKey: bigint,
-  publicKey: { x: bigint; y: bigint }
+  publicKey: { x: bigint; y: bigint },
+  walletClient: any,
+  publicClient: any
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
     logger.info('🔄 Initializing Nydus position...');
@@ -174,29 +176,13 @@ export async function initializeNydusPosition(
     const noir = new Noir(circuit);
 
     // Step 3: Prepare circuit inputs
-    const WETH_BASE_SEPOLIA = '0x4200000000000000000000000000000000000006';
-
-    // Double hash the private key to get a different user_key (for testing)
-    const aztecCrypto = await eval(`import('@aztec/foundation/crypto')`);
-    const { poseidon2Hash } = aztecCrypto;
-    const doubleHashedKey = await poseidon2Hash([privateKey]);
-
-    // Convert to bigint
-    let finalUserKey: bigint;
-    if (typeof doubleHashedKey === 'bigint') {
-      finalUserKey = doubleHashedKey;
-    } else if ('toBigInt' in doubleHashedKey && typeof (doubleHashedKey as any).toBigInt === 'function') {
-      finalUserKey = (doubleHashedKey as any).toBigInt();
-    } else if ('value' in doubleHashedKey) {
-      finalUserKey = BigInt((doubleHashedKey as any).value);
-    } else {
-      finalUserKey = BigInt((doubleHashedKey as any).toString());
-    }
+    // Use USDC for initialization (matching the token we'll use for send)
+    const USDC_BASE_SEPOLIA = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 
     const inputs = {
-      user_key: '0x' + finalUserKey.toString(16),
-      token_address: WETH_BASE_SEPOLIA,
-      amount: '0x1', // 1 wei for initialization
+      user_key: '0x' + privateKey.toString(16),
+      token_address: USDC_BASE_SEPOLIA,
+      amount: '0x0', // 0 wei for initialization (we don't have USDC yet)
     };
 
     // @ts-ignore - Use { keccak: true } like in frontend
@@ -345,7 +331,9 @@ export async function depositToNydus(
   privateKey: bigint,
   tokenAddress: string,
   amount: bigint,
-  fromAddress: string
+  fromAddress: string,
+  walletClient: any,
+  publicClient: any
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
     logger.info('Creating Nydus deposit...', {

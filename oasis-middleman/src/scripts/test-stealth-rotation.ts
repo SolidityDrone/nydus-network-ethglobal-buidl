@@ -311,7 +311,7 @@ async function testStealthRotation() {
     
     if (!isInitialized) {
       console.log('   Initializing Nydus position (generating proof)...');
-      const initResult = await initializeNydusPosition(nydusPrivateKey, nydusPublicKey);
+      const initResult = await initializeNydusPosition(nydusPrivateKey, nydusPublicKey, walletClient, publicClient);
       
       if (initResult.success) {
         console.log(`✅ Nydus position initialized! Tx: ${initResult.txHash}`);
