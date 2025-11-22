@@ -1,0 +1,12 @@
+services:
+  nydus-proof-server:
+    image: docker.io/dronhex/nydus-proof-server:latest
+    platform: linux/amd64
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    restart: unless-stopped 
+
+

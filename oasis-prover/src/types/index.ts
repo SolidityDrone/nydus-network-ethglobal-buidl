@@ -23,7 +23,6 @@ export interface Greeting {
     timestamp: Date;
     server: string;
 }
-
 // JustaName API Types
 export interface JustaNameAddSubnameRequest {
     ens: string;
@@ -103,3 +102,4 @@ export interface JustaNameAddMappPermissionRequest {
     fields: string[];
     providerUrl: string;
 }
+
