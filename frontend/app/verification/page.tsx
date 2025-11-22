@@ -48,12 +48,13 @@ export default function VerificationPage() {
                     // Verification requirements (must match backend)
                     minimumAge: 18,
                     excludedCountries: [countries.UNITED_STATES], // Use country constants
-                    ofac: true, // Optional: OFAC compliance checking
+                    ofac: true, // OFAC compliance checking
 
+                    // Disclosure requests (frontend only)
+                    // nationality: true,
                     // Optional disclosures (uncomment to request):
                     // name: true,
                     // issuing_state: true,
-                    // nationality: true,
                     // date_of_birth: true,
                     // passport_number: true,
                     // gender: true,
@@ -186,11 +187,7 @@ export default function VerificationPage() {
                                             </li>
                                             <li className="flex items-center gap-2">
                                                 <span className="text-[rgba(182,255,62,1)]">✓</span>
-                                                Nationality disclosure
-                                            </li>
-                                            <li className="flex items-center gap-2">
-                                                <span className="text-[rgba(182,255,62,1)]">✓</span>
-                                                Gender disclosure
+                                                OFAC compliance check enabled
                                             </li>
                                         </ul>
                                     </CardContent>
