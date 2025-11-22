@@ -1,0 +1,33 @@
+{
+  "name": "oasis-middleman",
+  "version": "1.0.0",
+  "description": "Oasis TEE TDX Middleman Backend",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "watch": "tsc --watch",
+    "test:subname": "ts-node src/scripts/test-subname.ts",
+    "monitor:transfers": "ts-node src/scripts/monitor-transfers.ts"
+  },
+  "keywords": [
+    "oasis",
+    "tee",
+    "tdx"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@justaname.id/sdk": "^0.2.204",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
