@@ -20,7 +20,13 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@aztec/bb.js": "0.82.2",
+    "@aztec/foundation": "1.2.1",
     "@justaname.id/sdk": "^0.2.204",
+    "@noble/curves": "2.0.1",
+    "@noir-lang/noir_js": "1.0.0-beta.3",
+    "bigint-crypto-utils": "3.3.0",
+    "buffer": "6.0.3",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "viem": "^2.0.0"

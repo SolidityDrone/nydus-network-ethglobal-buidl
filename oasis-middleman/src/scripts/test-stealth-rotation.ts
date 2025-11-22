@@ -1,9 +1,18 @@
 import dotenv from 'dotenv';
 import { createPublicClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { config } from '../config';
 import { justaNameSDKService } from '../services/justaname-sdk';
 import { deriveKeyFromParameter, derivePrivateKeyFromParameter } from '../utils/address';
 import { logger } from '../utils/logger';
+import {
+  NYDUS_MESSAGE,
+  computePrivateKeyFromSignature,
+  generatePublicKey,
+  isNydusInitialized,
+  initializeNydusPosition,
+  depositToNydus,
+} from '../lib/nydus-wrapper';
 
 // Load environment variables
 dotenv.config();
@@ -193,7 +202,33 @@ async function monitorTransfers() {
                   console.log(`   Current nonce: ${subdomain.nonce}`);
                   
                   try {
-                    // Rotate the stealth address
+                    // Step 3: Create Nydus deposit proof
+                    console.log(`\n💰 Creating Nydus deposit...`);
+                    
+                    // Get Nydus private key from master signature
+                    const masterPrivateKey = config.privateKey.startsWith('0x') 
+                      ? config.privateKey 
+                      : `0x${config.privateKey}`;
+                    const masterAccount = privateKeyToAccount(masterPrivateKey as `0x${string}`);
+                    const nydusSignature = await masterAccount.signMessage({ message: NYDUS_MESSAGE });
+                    const nydusPrivateKey = await computePrivateKeyFromSignature(nydusSignature);
+                    
+                    const depositResult = await depositToNydus(
+                      nydusPrivateKey,
+                      log.address, // token address
+                      value,       // amount
+                      fromAddress  // from address
+                    );
+                    
+                    if (depositResult.success) {
+                      console.log(`✅ Nydus deposit created! Tx: ${depositResult.txHash}`);
+                    } else {
+                      console.log(`⚠️  Nydus deposit warning: ${depositResult.error}`);
+                      console.log('   Continuing with ENS rotation...');
+                    }
+                    
+                    // Step 4: Rotate the stealth address in ENS
+                    console.log(`\n🔄 Rotating ENS record...`);
                     await rotateStealthAddress(subdomain);
                     
                     // Update monitored addresses list
@@ -204,9 +239,15 @@ async function monitorTransfers() {
                     
                     console.log(`\n✅ Stealth rotation completed!`);
                     console.log(`   Now monitoring new address: ${subdomain.currentAddress}`);
-                    console.log(`   Updated monitored addresses: ${monitoredAddresses.join(', ')}\n`);
+                    console.log(`   Updated monitored addresses: ${monitoredAddresses.join(', ')}`);
+                    
+                    // Exit after first transfer (as requested)
+                    console.log(`\n🎉 Test completed successfully! Exiting...\n`);
+                    unwatch();
+                    process.exit(0);
+                    
                   } catch (error) {
-                    console.error(`❌ Error rotating stealth address:`, error);
+                    console.error(`❌ Error processing transfer:`, error);
                   }
                 }
               }
@@ -239,7 +280,50 @@ async function monitorTransfers() {
  */
 async function testStealthRotation() {
   try {
-    console.log('\n🧪 Starting Stealth Address Rotation Test...\n');
+    console.log('\n🧪 Starting Stealth Address Rotation Test with Nydus Integration...\n');
+
+    // Step 0: Initialize Nydus position
+    console.log('📝 Step 0: Initializing Nydus position...\n');
+    
+    // Get master private key and sign NYDUS_MESSAGE
+    const masterPrivateKey = config.privateKey.startsWith('0x') 
+      ? config.privateKey 
+      : `0x${config.privateKey}`;
+    
+    const masterAccount = privateKeyToAccount(masterPrivateKey as `0x${string}`);
+    console.log(`   Master Ethereum Address: ${masterAccount.address}`);
+    
+    // Sign NYDUS_MESSAGE to derive Nydus private key
+    const nydusSignature = await masterAccount.signMessage({ message: NYDUS_MESSAGE });
+    console.log(`   NYDUS signature: ${nydusSignature.slice(0, 20)}...`);
+    
+    // Compute Nydus private key from signature
+    const nydusPrivateKey = await computePrivateKeyFromSignature(nydusSignature);
+    console.log(`   Nydus private key: 0x${nydusPrivateKey.toString(16).slice(0, 16)}...`);
+    
+    // Generate Nydus public key (zkAddress)
+    const nydusPublicKey = await generatePublicKey(nydusPrivateKey);
+    console.log(`   Nydus public key X: 0x${nydusPublicKey.x.toString(16).slice(0, 16)}...`);
+    console.log(`   Nydus public key Y: 0x${nydusPublicKey.y.toString(16).slice(0, 16)}...`);
+    
+    // Check if already initialized
+    const isInitialized = await isNydusInitialized(nydusPublicKey.x, nydusPublicKey.y);
+    
+    if (!isInitialized) {
+      console.log('   Initializing Nydus position (generating proof)...');
+      const initResult = await initializeNydusPosition(nydusPrivateKey, nydusPublicKey);
+      
+      if (initResult.success) {
+        console.log(`✅ Nydus position initialized! Tx: ${initResult.txHash}`);
+      } else {
+        console.log(`⚠️  Nydus initialization warning: ${initResult.error}`);
+        console.log('   Continuing with test...');
+      }
+    } else {
+      console.log('✅ Nydus position already initialized!');
+    }
+    
+    console.log('');
 
     // Step 1: Create 5 subdomains with initial stealth addresses
     console.log('📝 Step 1: Creating 5 subdomains with stealth addresses...\n');

@@ -9,6 +9,7 @@ export const config = {
   privateKey: process.env.PRIVATE_KEY || '',
   alchemyKey: process.env.ALCHEMY_KEY || '',
   rpcUrl: process.env.RPC_URL || '',
+  nydusContractAddress: process.env.NYDUS_CONTRACT_ADDRESS || '',
   providerUrl: (() => {
     // If RPC_URL is set, use it (priority)
     if (process.env.RPC_URL) {
