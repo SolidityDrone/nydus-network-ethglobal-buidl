@@ -52,6 +52,14 @@ pnpm run monitor:transfers
 
 Watches for ERC20 transfers to a hardcoded address (0x223677a35623ad17bf1b110d185842917605c7f3). Prints transfer details and exits when detected.
 
+### Test Stealth Address Rotation
+
+```bash
+pnpm run test:stealth
+```
+
+Creates 5 subdomains with stealth addresses, monitors them for ERC20 transfers, and automatically rotates the stealth address (increments nonce and updates resolution address) when a transfer is detected.
+
 ## Environment Variables
 
 - `JUSTNAME_API_KEY` - JustaName API key (required)

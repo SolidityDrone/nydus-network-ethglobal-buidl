@@ -267,52 +267,69 @@ class JustaNameSDKService {
   }
 
   /**
-   * Update a subname's text records
+   * Update a subname's text records and optionally change owner
    */
   async updateSubname(
     username: string,
-    derivedPrivateKey: string,
-    records: Record<string, string>
+    currentOwnerPrivateKey: string,
+    records: Record<string, string>,
+    newOwnerAddress?: string
   ): Promise<any> {
     const justaname = await this.getJustaName();
     const chainId = config.chainId as ChainId;
 
-    // Create account from derived private key
-    const derivedAccount = privateKeyToAccount(derivedPrivateKey as `0x${string}`);
-    const derivedAddress = derivedAccount.address;
+    // Create account from CURRENT owner's private key (not the new one!)
+    const currentOwnerAccount = privateKeyToAccount(currentOwnerPrivateKey as `0x${string}`);
+    const currentOwnerAddress = currentOwnerAccount.address;
 
     logger.info(`Updating subname: ${username}.${config.ensDomain}`, {
-      derivedAddress,
+      currentOwnerAddress,
+      newOwnerAddress,
       records,
     });
 
-    // Step 1: Request challenge (for the derived address)
-    const challengeResponse = await this.requestChallengeForAddress(derivedAddress);
+    // Step 1: Request challenge (for the CURRENT owner address)
+    const challengeResponse = await this.requestChallengeForAddress(currentOwnerAddress);
     if (!challengeResponse.challenge) {
       throw new Error('Failed to get challenge');
     }
 
-    // Step 2: Sign the challenge with the derived account
-    const signature = await derivedAccount.signMessage({
+    // Step 2: Sign the challenge with the CURRENT owner account
+    const signature = await currentOwnerAccount.signMessage({
       message: challengeResponse.challenge,
     });
 
-    logger.debug('Message signed with derived account for update', {
+    logger.debug('Message signed with current owner account for update', {
       signature,
       signatureLength: signature.length,
     });
 
-    // Step 3: Update subname with SIWE authentication
+    // Step 3: Prepare update parameters
+    const updateParams: any = {
+      username,
+      ensDomain: config.ensDomain,
+      chainId: chainId,
+      text: records,
+    };
+
+    // If we want to change the owner address, add it to addresses
+    if (newOwnerAddress) {
+      const ETH_COIN_TYPE = 60;
+      updateParams.addresses = {
+        [ETH_COIN_TYPE]: newOwnerAddress,
+      };
+      logger.info('Changing owner address', {
+        from: currentOwnerAddress,
+        to: newOwnerAddress,
+      });
+    }
+
+    // Step 4: Update subname with SIWE authentication
     const result = await justaname.subnames.updateSubname(
-      {
-        username,
-        ensDomain: config.ensDomain,
-        chainId: chainId,
-        text: records,
-      },
+      updateParams,
       {
         xMessage: challengeResponse.challenge,
-        xAddress: derivedAddress,
+        xAddress: currentOwnerAddress,
         xSignature: signature,
       }
     );
