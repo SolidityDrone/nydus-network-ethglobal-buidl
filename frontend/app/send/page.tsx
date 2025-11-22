@@ -6,7 +6,7 @@ import { useAccountState } from '@/context/AccountStateProvider';
 import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import { useSignMessage } from 'wagmi';
 import { createPublicClient, http } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { baseSepolia, sepolia } from 'viem/chains';
 import { Noir } from '@noir-lang/noir_js';
 import { CachedUltraHonkBackend } from '@/lib/cached-ultra-honk-backend';
 import circuit from '@/lib/circuits/nydus_send.json';
@@ -62,6 +62,8 @@ export default function SendPage() {
     const [selectedBalanceEntry, setSelectedBalanceEntry] = useState<number | null>(null);
     const [selectedRelayFeeBalanceEntry, setSelectedRelayFeeBalanceEntry] = useState<number | null>(null);
     const [qrScannerOpen, setQrScannerOpen] = useState(false);
+    const [isResolvingEns, setIsResolvingEns] = useState(false);
+    const [ensResolutionError, setEnsResolutionError] = useState<string | null>(null);
 
     // Handle QR code scan
     const handleQRScan = useCallback((data: { x: string; y: string }) => {
@@ -75,22 +77,85 @@ export default function SendPage() {
         }
     }, []);
 
-    // Parse zkAddress when it changes
+    // Resolve ENS name or parse zkAddress when it changes
     React.useEffect(() => {
-        if (receiverZkAddress && receiverZkAddress.trim()) {
-            try {
-                const { x, y } = parseZkAddress(receiverZkAddress.trim());
-                setReceiverPublicKeyX('0x' + x.toString(16));
-                setReceiverPublicKeyY('0x' + y.toString(16));
-            } catch (error) {
-                // If parsing fails, clear the fields (user might be typing)
-                // Only clear if it's clearly not a valid format
-                if (receiverZkAddress.length > 10) {
-                    console.warn('Failed to parse zkAddress:', error);
+        const resolveOrParse = async () => {
+            if (!receiverZkAddress || !receiverZkAddress.trim()) {
+                setEnsResolutionError(null);
+                return;
+            }
+
+            const input = receiverZkAddress.trim();
+
+            // Check if it's a zkAddress (starts with 'zk')
+            if (input.startsWith('zk')) {
+                // It's a zkAddress, parse it directly
+                setEnsResolutionError(null);
+                try {
+                    const { x, y } = parseZkAddress(input);
+                    setReceiverPublicKeyX('0x' + x.toString(16));
+                    setReceiverPublicKeyY('0x' + y.toString(16));
+                } catch (error) {
+                    // If parsing fails, clear the fields (user might be typing)
+                    if (input.length > 10) {
+                        console.warn('Failed to parse zkAddress:', error);
+                        setEnsResolutionError('Invalid zkAddress format');
+                    }
+                }
+            } else {
+                // Assume it's an ENS subdomain name (without .nydusns.eth)
+                setIsResolvingEns(true);
+                setEnsResolutionError(null);
+
+                try {
+                    console.log('Resolving ENS subdomain:', input);
+
+                    // Construct full ENS name
+                    const fullEnsName = `${input}.nydusns.eth`;
+
+                    // Create a public client for Sepolia (where ENS is registered)
+                    const ensClient = createPublicClient({
+                        chain: sepolia,
+                        transport: http('https://ethereum-sepolia-rpc.publicnode.com')
+                    });
+
+                    // Get the description text record using viem
+                    const zkAddress = await ensClient.getEnsText({
+                        name: fullEnsName,
+                        key: 'description',
+                    });
+
+                    console.log('ENS text record (description):', zkAddress);
+
+                    if (zkAddress && zkAddress.startsWith('zk')) {
+                        console.log('ENS resolved to zkAddress:', zkAddress);
+
+                        // Parse the resolved zkAddress
+                        const { x, y } = parseZkAddress(zkAddress);
+                        setReceiverPublicKeyX('0x' + x.toString(16));
+                        setReceiverPublicKeyY('0x' + y.toString(16));
+                        setEnsResolutionError(null);
+
+                        toast(`ENS resolved: ${fullEnsName}`, 'success');
+                    } else {
+                        setEnsResolutionError('No zkAddress found in ENS text records');
+                        setReceiverPublicKeyX('');
+                        setReceiverPublicKeyY('');
+                    }
+                } catch (error) {
+                    console.error('Error resolving ENS:', error);
+                    setEnsResolutionError('Failed to resolve ENS name');
+                    setReceiverPublicKeyX('');
+                    setReceiverPublicKeyY('');
+                } finally {
+                    setIsResolvingEns(false);
                 }
             }
-        }
-    }, [receiverZkAddress]);
+        };
+
+        const timeoutId = setTimeout(resolveOrParse, 500); // Debounce
+        return () => clearTimeout(timeoutId);
+    }, [receiverZkAddress, toast]);
     const [localUserKey, setLocalUserKey] = useState<string>('');
     const [publicInputs, setPublicInputs] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -343,7 +408,7 @@ export default function SendPage() {
         try {
             // Use contextUserKey if available, otherwise use localUserKey
             const userKeyToUse = contextUserKey ? '0x' + contextUserKey.toString(16) : localUserKey;
-            
+
             if (!userKeyToUse) {
                 throw new Error('User key not available. Please sign a message first.');
             }
@@ -366,23 +431,23 @@ export default function SendPage() {
             // Convert inputs to BigInt
             const userKeyBigInt = BigInt(userKeyToUse.startsWith('0x') ? userKeyToUse : '0x' + userKeyToUse);
             const tokenAddressBigInt = BigInt(tokenAddress.startsWith('0x') ? tokenAddress : '0x' + tokenAddress);
-            
+
             // Convert decimal amount to hex (default 18 decimals)
             const decimals = 18;
             const amountFloat = parseFloat(amount) || 0;
             const amountInWei = BigInt(Math.floor(amountFloat * Math.pow(10, decimals)));
             const amountBigInt = amountInWei;
-            
+
             console.log(`[Send] Amount conversion: ${amountFloat} (decimal) -> ${amountInWei.toString()} (wei) = 0x${amountInWei.toString(16)}`);
-            
+
             const relayFeeTokenAddressBigInt = BigInt(relayFeeTokenAddress.startsWith('0x') ? relayFeeTokenAddress : '0x' + relayFeeTokenAddress);
-            
+
             // Convert decimal receiver fee amount to hex (default 18 decimals)
             const relayFeeDecimals = 18;
             const receiverFeeAmountFloat = parseFloat(receiverFeeAmount) || 0;
             const receiverFeeAmountInWei = BigInt(Math.floor(receiverFeeAmountFloat * Math.pow(10, relayFeeDecimals)));
             const receiverFeeAmountBigInt = receiverFeeAmountInWei;
-            
+
             console.log(`[Send] Receiver fee amount conversion: ${receiverFeeAmountFloat} (decimal) -> ${receiverFeeAmountInWei.toString()} (wei) = 0x${receiverFeeAmountInWei.toString(16)}`);
 
             // Validate receiver zkAddress
@@ -438,7 +503,7 @@ export default function SendPage() {
             const sendTokenEntries = balanceEntries
                 .filter(entry => entry.tokenAddress === tokenAddressBigInt && entry.nonce <= previousNonce)
                 .sort((a, b) => a.nonce > b.nonce ? -1 : 1); // Sort descending by nonce
-            
+
             const sendTokenBalanceEntry = sendTokenEntries.length > 0 ? sendTokenEntries[0] : null;
 
             if (!sendTokenBalanceEntry || sendTokenBalanceEntry.amount === undefined || sendTokenBalanceEntry.amount === null) {
@@ -496,7 +561,7 @@ export default function SendPage() {
                 const feeTokenEntries = balanceEntries
                     .filter(entry => entry.tokenAddress === relayFeeTokenAddressBigInt && entry.nonce <= previousNonce)
                     .sort((a, b) => a.nonce > b.nonce ? -1 : 1); // Sort descending by nonce
-                
+
                 const feeTokenBalanceEntry = feeTokenEntries.length > 0 ? feeTokenEntries[0] : null;
 
                 if (!feeTokenBalanceEntry || feeTokenBalanceEntry.amount === undefined || feeTokenBalanceEntry.amount === null) {
@@ -908,11 +973,11 @@ export default function SendPage() {
                 // The key insight: main_c_outer includes ALL previous operations (initial + entry + all operations before previousNonce)
                 // We subtract the previous operation's opening values from the contract's aggregated values
                 const BN254_SCALAR_FIELD_MODULUS = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
-                
+
                 const mainCOuterM = (contractStateM - encCTotMBigInt + BN254_SCALAR_FIELD_MODULUS) % BN254_SCALAR_FIELD_MODULUS;
                 const mainCOuterR = (contractStateR - encCTotRBigInt + BN254_SCALAR_FIELD_MODULUS) % BN254_SCALAR_FIELD_MODULUS;
                 const mainCOuterD = (contractStateD - previousNonceCommitmentBigInt + BN254_SCALAR_FIELD_MODULUS) % BN254_SCALAR_FIELD_MODULUS;
-                
+
                 mainCOuterPoint = [mainCOuterM, mainCOuterR, mainCOuterD];
 
                 // CRITICAL: Compute main_c_outer from main_c_outer_point to ensure consistency
@@ -1459,7 +1524,7 @@ export default function SendPage() {
         setIsSimulating(false);
         setShowTransactionModal(false);
         setHasTransactionBeenSent(false);
-        
+
         // Reload account data from blockchain and save to IndexedDB
         if (zkAddress) {
             console.log('🔄 Clearing form and reloading account data...');
@@ -1589,15 +1654,16 @@ export default function SendPage() {
 
                                             <div>
                                                 <label className="block text-xs sm:text-sm font-mono font-bold text-white mb-1 uppercase">
-                                                    RECEIVER ZK ADDRESS
+                                                    RECEIVER ZK ADDRESS OR ENS NAME
                                                 </label>
                                                 <div className="flex items-center space-x-2">
                                                     <Input
                                                         type="text"
                                                         value={receiverZkAddress}
                                                         onChange={(e) => setReceiverZkAddress(e.target.value)}
-                                                        placeholder="zk..."
+                                                        placeholder="zk... or rosario"
                                                         className="text-xs sm:text-sm flex-1"
+                                                        disabled={isResolvingEns}
                                                     />
                                                     <Button
                                                         type="button"
@@ -1610,9 +1676,19 @@ export default function SendPage() {
                                                         <QrCode className="w-4 h-4" />
                                                     </Button>
                                                 </div>
-                                                <p className="mt-1 text-[10px] sm:text-xs font-mono text-[#888888] uppercase break-words">
-                                                    X AND Y COORDINATES WILL BE EXTRACTED AUTOMATICALLY
-                                                </p>
+                                                {isResolvingEns ? (
+                                                    <p className="mt-1 text-[10px] sm:text-xs font-mono text-[rgba(182,255,62,1)] uppercase">
+                                                        RESOLVING ENS NAME...
+                                                    </p>
+                                                ) : ensResolutionError ? (
+                                                    <p className="mt-1 text-[10px] sm:text-xs font-mono text-red-500 uppercase">
+                                                        {ensResolutionError}
+                                                    </p>
+                                                ) : (
+                                                    <p className="mt-1 text-[10px] sm:text-xs font-mono text-[#888888] uppercase break-words">
+                                                        ENTER ZKADDRESS, ENS SUBDOMAIN (AUTO-ADDS .NYDUSNS.ETH), OR SCAN QR
+                                                    </p>
+                                                )}
                                             </div>
 
                                             {/* Display extracted coordinates (read-only) */}
