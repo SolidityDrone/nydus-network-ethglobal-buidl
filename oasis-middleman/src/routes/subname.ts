@@ -119,6 +119,47 @@ router.post('/derive-address', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/update
+ * Update an existing subname
+ */
+router.post('/update', async (req: Request, res: Response) => {
+    logger.info('Update endpoint called', { body: req.body });
+
+    try {
+        const { subname, description, newResolutionAddress } = req.body;
+
+        // Validate required fields
+        if (!subname) {
+            return res.status(400).json(
+                createErrorResponse('Missing required field: subname is required', 400)
+            );
+        }
+
+        logger.info('Updating subname...', { subname, description, newResolutionAddress });
+
+        // Import updateSubname function
+        const { updateSubname } = await import('../services/subname');
+
+        // Update the subname
+        const result = await updateSubname(subname, description, newResolutionAddress);
+
+        if (result.success) {
+            res.json(createApiResponse(result.data));
+        } else {
+            res.status(500).json(createErrorResponse(result.error || 'Update failed', 500));
+        }
+    } catch (error) {
+        logger.error('Update error:', error);
+        res.status(500).json(
+            createErrorResponse(
+                error instanceof Error ? error.message : 'Unknown error',
+                500
+            )
+        );
+    }
+});
+
+/**
  * GET /api/monitoring-status
  * Get current monitoring status
  */

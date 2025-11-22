@@ -31,6 +31,9 @@ function removeToast(id: string) {
     toastListeners.forEach(listener => listener(toasts));
 }
 
+// Export showToast as an alias for addToast for convenience
+export const showToast = addToast;
+
 export function useToast() {
     const [toastList, setToastList] = useState<Toast[]>(toasts);
 

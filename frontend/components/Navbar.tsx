@@ -23,6 +23,7 @@ const allNavigation = [
     { name: 'Withdraw', href: '/withdraw', icon: '⬆️' },
     { name: 'Absorb', href: '/absorb', icon: '💫' },
     { name: 'History', href: '/history', icon: '📜' },
+    { name: 'Naming', href: '/naming', icon: '🏷️' },
 ];
 
 export default function Navbar() {
@@ -42,7 +43,7 @@ export default function Navbar() {
     // Filter navigation based on nonce
     const navigation = React.useMemo(() => {
         if (currentNonce === null || currentNonce === BigInt(0)) {
-            return allNavigation.filter(item => item.name === 'Home' || item.name === 'Initialize');
+            return allNavigation.filter(item => item.name === 'Home' || item.name === 'Initialize' || item.name === 'Naming');
         } else {
             return allNavigation.filter(item => item.name !== 'Initialize');
         }

@@ -12,6 +12,7 @@
   "dependencies": {
     "@aztec/bb.js": "0.82.2",
     "@aztec/foundation": "1.2.1",
+    "@justaname.id/sdk": "^0.2.204",
     "@noble/curves": "2.0.1",
     "@noir-lang/noir_js": "1.0.0-beta.3",
     "@prisma/client": "^6.7.0",
