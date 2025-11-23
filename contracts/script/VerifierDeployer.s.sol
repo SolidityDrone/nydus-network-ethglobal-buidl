@@ -23,6 +23,7 @@ contract VerifierDeployer is Script {
         console.log("Deploying all 5 verifiers...");
         
         vm.startBroadcast();
+        console.log(msg.sender);
         
         // Deploy Entry Verifier
         console.log("Deploying Entry Verifier...");

@@ -6,7 +6,26 @@ import { useAccountState } from '@/context/AccountStateProvider';
 import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import { useSignMessage } from 'wagmi';
 import { createPublicClient, http } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { defineChain } from 'viem';
+
+// Celo Sepolia chain definition
+const celoSepolia = defineChain({
+  id: 11142220,
+  name: 'Celo Sepolia',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'CELO',
+    symbol: 'CELO',
+  },
+  rpcUrls: {
+    default: {
+      http: [process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
+  },
+});
 import { Noir } from '@noir-lang/noir_js';
 import { CachedUltraHonkBackend } from '@/lib/cached-ultra-honk-backend';
 import circuit from '@/lib/circuits/nydus_withdraw.json';
@@ -1116,7 +1135,7 @@ export default function WithdrawPage() {
             console.log('Public inputs (sliced to 20):', publicInputsBytes32);
 
             const client = publicClient || createPublicClient({
-                chain: baseSepolia,
+                chain: celoSepolia,
                 transport: http()
             });
 

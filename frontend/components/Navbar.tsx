@@ -12,8 +12,7 @@ import { useAccountModal } from './AccountModalProvider';
 import { useAccountState } from '@/context/AccountStateProvider';
 import { loadAccountDataOnSign } from '@/lib/loadAccountDataOnSign';
 import { Button } from './ui/button';
-import QRModal from './QRModal';
-import { Copy, Check, QrCode } from 'lucide-react';
+import ZkAddressModal from './ZkAddressModal';
 
 const allNavigation = [
     { name: 'Home', href: '/', icon: '🏠' },
@@ -23,8 +22,6 @@ const allNavigation = [
     { name: 'Withdraw', href: '/withdraw', icon: '⬆️' },
     { name: 'Absorb', href: '/absorb', icon: '💫' },
     { name: 'History', href: '/history', icon: '📜' },
-    { name: 'Naming', href: '/naming', icon: '🏷️' },
-    { name: 'Verification', href: '/verification', icon: '✅' },
 ];
 
 export default function Navbar() {
@@ -39,12 +36,12 @@ export default function Navbar() {
     const { currentNonce, setCurrentNonce, setBalanceEntries, setUserKey, isSyncing, setPersonalCommitmentState, getPersonalCommitmentState, clearAccountState } = useAccountState();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [qrModalOpen, setQrModalOpen] = useState(false);
+    const [zkAddressModalOpen, setZkAddressModalOpen] = useState(false);
 
     // Filter navigation based on nonce
     const navigation = React.useMemo(() => {
         if (currentNonce === null || currentNonce === BigInt(0)) {
-            return allNavigation.filter(item => item.name === 'Home' || item.name === 'Initialize' || item.name === 'Naming');
+            return allNavigation.filter(item => item.name === 'Home' || item.name === 'Initialize');
         } else {
             return allNavigation.filter(item => item.name !== 'Initialize');
         }
@@ -186,7 +183,6 @@ export default function Navbar() {
 
                         {/* Wallet Connect & Account Status */}
                         <div className="hidden md:flex items-center space-x-3">
-                            <AppKitButton />
                             {isConnected && address && (
                                 <div className="flex items-center space-x-3">
                                     <Button
@@ -200,31 +196,14 @@ export default function Navbar() {
 
                                     {zkAddress ? (
                                         <div className="flex items-center space-x-2">
-                                            <div className="flex items-center space-x-2 px-3 py-1.5 border border-[#333333] bg-[#0a0a0a]">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm text-white font-mono">
-                                                        {zkAddress.slice(0, 6)}...{zkAddress.slice(-4)}
-                                                    </span>
-                                                </div>
-                                                <button
-                                                    onClick={handleCopy}
-                                                    className="p-1.5 text-[#888888] hover:text-[rgba(182,255,62,1)] transition-colors"
-                                                    title="Copy to clipboard"
-                                                >
-                                                    {copied ? (
-                                                        <Check className="w-4 h-4" />
-                                                    ) : (
-                                                        <Copy className="w-4 h-4" />
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={() => setQrModalOpen(true)}
-                                                    className="p-1.5 text-[#888888] hover:text-[rgba(182,255,62,1)] transition-colors"
-                                                    title="Show QR code"
-                                                >
-                                                    <QrCode className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                                            <button
+                                                onClick={() => setZkAddressModalOpen(true)}
+                                                className="flex items-center space-x-2 px-3 py-1.5 border border-[#333333] bg-[#0a0a0a] hover:border-[rgba(182,255,62,1)] transition-colors"
+                                            >
+                                                <span className="text-sm text-white font-mono">
+                                                    {zkAddress.slice(0, 6)}...{zkAddress.slice(-4)}
+                                                </span>
+                                            </button>
                                             <Button
                                                 onClick={handleLogout}
                                                 variant="outline"
@@ -277,11 +256,6 @@ export default function Navbar() {
 
                             {/* Wallet Connect & Account Status for Mobile */}
                             <div className="mt-4 pt-4 border-t border-[#333333] space-y-2">
-                                {!isConnected && (
-                                    <div className="w-full">
-                                        <AppKitButton />
-                                    </div>
-                                )}
                                 {isConnected && address && (
                                     <>
                                         <Button
@@ -296,35 +270,17 @@ export default function Navbar() {
                                         </Button>
                                         {zkAddress ? (
                                             <div className="space-y-2">
-                                                <div className="flex items-center justify-between px-4 py-2 border border-[#333333] bg-[#0a0a0a]">
-                                                    <div>
-                                                        <span className="text-sm text-white font-mono">
-                                                            {zkAddress.slice(0, 8)}...{zkAddress.slice(-6)}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center space-x-1">
-                                                        <button
-                                                            onClick={handleCopy}
-                                                            className="p-1.5 text-[#888888] hover:text-white transition-colors"
-                                                        >
-                                                            {copied ? (
-                                                                <Check className="w-4 h-4" />
-                                                            ) : (
-                                                                <Copy className="w-4 h-4" />
-                                                            )}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setQrModalOpen(true);
-                                                                setMobileMenuOpen(false);
-                                                            }}
-                                                            className="p-1.5 text-[#888888] hover:text-white transition-colors"
-                                                            title="Show QR code"
-                                                        >
-                                                            <QrCode className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        setZkAddressModalOpen(true);
+                                                        setMobileMenuOpen(false);
+                                                    }}
+                                                    className="w-full flex items-center justify-between px-4 py-2 border border-[#333333] bg-[#0a0a0a] hover:border-[rgba(182,255,62,1)] transition-colors"
+                                                >
+                                                    <span className="text-sm text-white font-mono">
+                                                        {zkAddress.slice(0, 8)}...{zkAddress.slice(-6)}
+                                                    </span>
+                                                </button>
                                                 <Button
                                                     onClick={handleLogout}
                                                     variant="outline"
@@ -350,10 +306,12 @@ export default function Navbar() {
                 </div>
             </nav>
             {zkAddress && (
-                <QRModal
-                    isOpen={qrModalOpen}
-                    onClose={() => setQrModalOpen(false)}
+                <ZkAddressModal
+                    isOpen={zkAddressModalOpen}
+                    onClose={() => setZkAddressModalOpen(false)}
                     zkAddress={zkAddress}
+                    onCopy={handleCopy}
+                    copied={copied}
                 />
             )}
         </>

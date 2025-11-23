@@ -2,7 +2,26 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { createWalletClient, custom, recoverMessageAddress, keccak256, stringToHex, recoverPublicKey, createPublicClient, http } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { defineChain } from 'viem';
+
+// Celo Sepolia chain definition
+const celoSepolia = defineChain({
+  id: 11142220,
+  name: 'Celo Sepolia',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'CELO',
+    symbol: 'CELO',
+  },
+  rpcUrls: {
+    default: {
+      http: [process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
+  },
+});
 import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useSignMessage } from 'wagmi';
 import { useAccount as useAccountContext, useZkAddress } from '@/context/AccountProvider';
 import { Noir } from '@noir-lang/noir_js';
@@ -411,7 +430,7 @@ export default function InitializePage() {
 
             // Create public client if not available from wagmi
             const client = publicClient || createPublicClient({
-                chain: baseSepolia,
+                chain: celoSepolia,
                 transport: http()
             });
 

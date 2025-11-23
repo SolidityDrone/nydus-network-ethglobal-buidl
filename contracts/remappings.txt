@@ -1,1 +1,2 @@
 "@openzeppelin/=lib/openzeppelin-contracts/"
+@selfxyz/contracts/=node_modules/@selfxyz/contracts/

@@ -6,7 +6,27 @@ import { useAccountState } from '@/context/AccountStateProvider';
 import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import { useSignMessage } from 'wagmi';
 import { createPublicClient, http } from 'viem';
-import { baseSepolia, sepolia } from 'viem/chains';
+import { sepolia } from 'viem/chains';
+import { defineChain } from 'viem';
+
+// Celo Sepolia chain definition
+const celoSepolia = defineChain({
+    id: 11142220,
+    name: 'Celo Sepolia',
+    nativeCurrency: {
+        decimals: 18,
+        name: 'CELO',
+        symbol: 'CELO',
+    },
+    rpcUrls: {
+        default: {
+            http: [process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'],
+        },
+    },
+    blockExplorers: {
+        default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
+    },
+});
 import { Noir } from '@noir-lang/noir_js';
 import { CachedUltraHonkBackend } from '@/lib/cached-ultra-honk-backend';
 import circuit from '@/lib/circuits/nydus_send.json';
@@ -1251,7 +1271,7 @@ export default function SendPage() {
             console.log(`Total public inputs: ${publicInputsBytes32.length} (expected: 28)`);
 
             const client = publicClient || createPublicClient({
-                chain: baseSepolia,
+                chain: celoSepolia,
                 transport: http()
             });
 
@@ -1844,8 +1864,8 @@ export default function SendPage() {
                                                     variant={proofMode === 'local' ? 'default' : 'outline'}
                                                     size="sm"
                                                     className={`text-xs h-7 px-3 font-mono ${proofMode === 'local'
-                                                            ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
-                                                            : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
+                                                        ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
+                                                        : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
                                                         }`}
                                                 >
                                                     LOCAL
@@ -1857,8 +1877,8 @@ export default function SendPage() {
                                                     size="sm"
                                                     disabled={isCheckingServer || serverAvailable === false}
                                                     className={`text-xs h-7 px-3 font-mono ${proofMode === 'remote'
-                                                            ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
-                                                            : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
+                                                        ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
+                                                        : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
                                                         }`}
                                                 >
                                                     {isCheckingServer ? 'CHECKING...' : 'REMOTE'}

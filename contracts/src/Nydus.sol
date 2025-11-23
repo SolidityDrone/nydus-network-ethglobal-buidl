@@ -7,7 +7,7 @@ import "./Poseidon2YulWrapper.sol";
 import "./VerifiersConst.sol";
 import "../lib/poseidon2-evm/src/Field.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
+import "./ProofOfHuman.sol";
 
 
 /**
@@ -19,7 +19,7 @@ interface IVerifier {
     function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool);
 }
 
-contract Nydus {
+contract Nydus is ProofOfHuman {
     // ============ ERRORS ============
    
     error InvalidProof();
@@ -150,7 +150,16 @@ contract Nydus {
     
     // ============ CONSTRUCTOR ============
     
-    constructor(address[] memory _verifiers) {
+    constructor(
+        address[] memory _verifiers, 
+        address identityVerificationHubV2Address, 
+        string memory scopeSeed, 
+        SelfUtils.UnformattedVerificationConfigV2 memory _verificationConfig
+    ) ProofOfHuman(
+        identityVerificationHubV2Address, 
+        scopeSeed, 
+        _verificationConfig
+    ) {
         // Initialize state commitment point with (1, 1) to avoid empty outer commitment
         stateCommitmentPoint = CommitmentPoint({
             x: 0x0bc6f794fe53f0c8704d41006c06065f765e884d12ea6841895866f6a7796568,
@@ -400,13 +409,17 @@ contract Nydus {
     }
 
     // ============ CIRCUIT OPERATIONS ============
-    
+    error OfacBannedBitch(address userAddress);
     /**
      * @dev Initialize a new commitment (entry circuit)
      * @param _proof The zkSNARK proof
      * @param _publicInputs The public inputs from the circuit
      */
     function initCommit(bytes calldata _proof, bytes32[] calldata _publicInputs) public {
+
+        if ( usedUserAddressToProofNonOfac[msg.sender] == bytes32(0)) {
+            revert OfacBannedBitch(msg.sender);
+        }
         bool isValid = IVerifier(VerifiersConst.ENTRY_VERIFIER).verify(_proof, _publicInputs);
         if (!isValid) {
             revert InvalidProof();
