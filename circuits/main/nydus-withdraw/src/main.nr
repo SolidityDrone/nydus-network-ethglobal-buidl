@@ -16,8 +16,6 @@ mod test;
 global VIEW_STRING: Field = 0x76696577696e675f6b6579 as Field;
 
 
-
-
 fn main(
     user_key: Field,
     token_address: pub Field,

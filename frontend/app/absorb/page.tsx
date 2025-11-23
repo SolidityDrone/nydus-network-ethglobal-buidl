@@ -46,6 +46,7 @@ import SyncingModal from '@/components/SyncingModal';
 import { useToast } from '@/components/Toast';
 import TokenSelector from '@/components/TokenSelector';
 import { generateProofRemote, checkProofServerStatus } from '@/lib/proof-server';
+import { relayTransaction } from '@/lib/relayer';
 
 export default function AbsorbPage() {
     const { toast } = useToast();
@@ -125,6 +126,8 @@ export default function AbsorbPage() {
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [proofMode, setProofMode] = useState<'local' | 'remote'>('local');
     const [isCheckingServer, setIsCheckingServer] = useState(false);
+    const [isRelaying, setIsRelaying] = useState(false);
+    const [hasTransactionBeenSent, setHasTransactionBeenSent] = useState(false);
     const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
 
     const backendRef = useRef<CachedUltraHonkBackend | null>(null);
@@ -1613,7 +1616,9 @@ export default function AbsorbPage() {
 
             console.log('Proof generated successfully:', proofHex);
             console.log('Public inputs (sliced to 20):', publicInputsHex);
-            console.log(`Total proving time: ${provingTimeMs}ms`);
+            if (provingTime !== null) {
+                console.log(`Total proving time: ${provingTime}ms`);
+            }
 
         } catch (error) {
             console.error('Error generating proof:', error);
@@ -1715,11 +1720,57 @@ export default function AbsorbPage() {
                 functionName: 'absorb',
                 args: [proofBytes as `0x${string}`, publicInputsBytes32 as readonly `0x${string}`[]],
             });
+            setHasTransactionBeenSent(true);
 
         } catch (error) {
             console.error('Error in handleAbsorb:', error);
             setTxError(error instanceof Error ? error.message : 'Failed to process transaction');
             setIsSubmitting(false);
+        }
+    };
+
+    const handleRelayAbsorb = async () => {
+        if (!proof || !publicInputs || publicInputs.length === 0) {
+            setTxError('Proof and public inputs are required');
+            return;
+        }
+
+        try {
+            setIsRelaying(true);
+            setTxError(null);
+            setTxHash(null);
+            setShowTransactionModal(true);
+
+            const proofBytes = `0x${proof}`;
+
+            // Verifier expects exactly 28 public inputs
+            if (publicInputs.length < 28) {
+                throw new Error(`Expected 28 public inputs, but got ${publicInputs.length}. Please regenerate the proof.`);
+            }
+
+            const slicedInputs = publicInputs.slice(0, 28);
+            const publicInputsBytes32 = slicedInputs.map((input: string) => {
+                const hex = input.startsWith('0x') ? input.slice(2) : input;
+                return `0x${hex.padStart(64, '0')}` as `0x${string}`;
+            });
+
+            console.log('Relaying absorb transaction...');
+
+            const result = await relayTransaction({
+                address: NydusAddress,
+                abi: NydusAbi as unknown as any[],
+                functionName: 'absorb',
+                args: [proofBytes, publicInputsBytes32],
+            });
+
+            setTxHash(result.hash);
+            setHasTransactionBeenSent(true);
+            toast('Transaction relayed successfully', 'success');
+        } catch (error) {
+            console.error('Error in handleRelayAbsorb:', error);
+            setTxError(error instanceof Error ? error.message : 'Failed to relay transaction');
+        } finally {
+            setIsRelaying(false);
         }
     };
 
@@ -2260,30 +2311,41 @@ export default function AbsorbPage() {
 
                             {/* Generate Proof / Send Transaction Button */}
                             {zkAddress && (
-                                <Button
-                                    onClick={proof ? handleAbsorb : proveAbsorb}
-                                    disabled={
-                                        proof
-                                            ? isPending || isConfirming || isSubmitting || isSimulating || isConfirmed || !publicInputs.length
-                                            : isProving || isInitializing || isCalculatingInputs
-                                    }
-                                    className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {proof
-                                        ? isSimulating
-                                            ? 'SIMULATING...'
-                                            : isPending || isSubmitting
-                                                ? 'PREPARING...'
-                                                : isConfirming
-                                                    ? 'CONFIRMING...'
-                                                    : 'ABSORB ON NYDUS'
-                                        : isProving
-                                            ? `GENERATING PROOF... (${currentProvingTime}MS)`
-                                            : isInitializing || isCalculatingInputs
-                                                ? 'CALCULATING INPUTS...'
-                                                : 'GENERATE ABSORB PROOF'
-                                    }
-                                </Button>
+                                <div className="flex flex-col gap-2">
+                                    <Button
+                                        onClick={proof ? handleAbsorb : proveAbsorb}
+                                        disabled={
+                                            proof
+                                                ? isPending || isConfirming || isSubmitting || isSimulating || isConfirmed || !publicInputs.length || hasTransactionBeenSent || isRelaying
+                                                : isProving || isInitializing || isCalculatingInputs
+                                        }
+                                        className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {proof
+                                            ? isSimulating
+                                                ? 'SIMULATING...'
+                                                : isPending || isSubmitting
+                                                    ? 'PREPARING...'
+                                                    : isConfirming
+                                                        ? 'CONFIRMING...'
+                                                        : 'ABSORB ON NYDUS'
+                                            : isProving
+                                                ? `GENERATING PROOF... (${currentProvingTime}MS)`
+                                                : isInitializing || isCalculatingInputs
+                                                    ? 'CALCULATING INPUTS...'
+                                                    : 'GENERATE ABSORB PROOF'
+                                        }
+                                    </Button>
+                                    {proof && publicInputs.length > 0 && !hasTransactionBeenSent && (
+                                        <Button
+                                            onClick={handleRelayAbsorb}
+                                            disabled={isRelaying || isPending || isConfirming || isSubmitting || isSimulating}
+                                            className="w-full bg-[rgba(100,100,255,1)] hover:bg-[rgba(100,100,255,0.8)] text-white font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isRelaying ? 'RELAYING...' : 'RELAY TRANSACTION'}
+                                        </Button>
+                                    )}
+                                </div>
                             )}
 
                             {proofError && (
@@ -2335,6 +2397,7 @@ export default function AbsorbPage() {
                 isPending={isPending || isSubmitting}
                 isConfirming={isConfirming}
                 isConfirmed={isConfirmed}
+                isRelaying={isRelaying}
                 txHash={txHash}
                 error={txError || writeError?.message || proofError || null}
                 transactionType="ABSORB"

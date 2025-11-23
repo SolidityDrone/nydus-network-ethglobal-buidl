@@ -47,6 +47,7 @@ import SyncingModal from '@/components/SyncingModal';
 import { useToast } from '@/components/Toast';
 import TokenSelector from '@/components/TokenSelector';
 import { generateProofRemote, checkProofServerStatus } from '@/lib/proof-server';
+import { relayTransaction } from '@/lib/relayer';
 
 export default function SendPage() {
     const { toast } = useToast();
@@ -255,6 +256,7 @@ export default function SendPage() {
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [simulationResult, setSimulationResult] = useState<any>(null);
     const [isCalculatingInputs, setIsCalculatingInputs] = useState(false);
+    const [isRelaying, setIsRelaying] = useState(false);
 
     const backendRef = useRef<CachedUltraHonkBackend | null>(null);
     const noirRef = useRef<Noir | null>(null);
@@ -1380,6 +1382,51 @@ export default function SendPage() {
         }
     };
 
+    const handleRelaySend = async () => {
+        if (!proof || !publicInputs || publicInputs.length === 0) {
+            setTxError('Proof and public inputs are required');
+            return;
+        }
+
+        try {
+            setIsRelaying(true);
+            setTxError(null);
+            setTxHash(null);
+            setShowTransactionModal(true);
+
+            const proofBytes = `0x${proof}`;
+
+            // Verifier expects exactly 28 public inputs (8 inputs + 20 outputs)
+            if (publicInputs.length < 28) {
+                throw new Error(`Expected 28 public inputs, but got ${publicInputs.length}. Please regenerate the proof.`);
+            }
+
+            const slicedInputs = publicInputs.slice(0, 28);
+            const publicInputsBytes32 = slicedInputs.map((input: string) => {
+                const hex = input.startsWith('0x') ? input.slice(2) : input;
+                return `0x${hex.padStart(64, '0')}` as `0x${string}`;
+            });
+
+            console.log('Relaying send transaction...');
+
+            const result = await relayTransaction({
+                address: NydusAddress,
+                abi: NydusAbi as unknown as any[],
+                functionName: 'send',
+                args: [proofBytes, publicInputsBytes32],
+            });
+
+            setTxHash(result.hash);
+            setHasTransactionBeenSent(true);
+            toast('Transaction relayed successfully', 'success');
+        } catch (error) {
+            console.error('Error in handleRelaySend:', error);
+            setTxError(error instanceof Error ? error.message : 'Failed to relay transaction');
+        } finally {
+            setIsRelaying(false);
+        }
+    };
+
     // Update txHash when hash changes and mark transaction as sent
     React.useEffect(() => {
         if (hash) {
@@ -1936,30 +1983,41 @@ export default function SendPage() {
 
                             {/* Generate Proof / Send Transaction Button */}
                             {zkAddress && (
-                                <Button
-                                    onClick={proof ? handleSend : proveSend}
-                                    disabled={
-                                        proof
-                                            ? isPending || isConfirming || isSubmitting || isSimulating || !publicInputs.length || hasTransactionBeenSent
-                                            : isProving || isInitializing || isCalculatingInputs
-                                    }
-                                    className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {proof
-                                        ? isSimulating
-                                            ? 'SIMULATING...'
-                                            : isPending || isSubmitting
-                                                ? 'PREPARING...'
-                                                : isConfirming
-                                                    ? 'CONFIRMING...'
-                                                    : 'SEND ON NYDUS'
-                                        : isProving
-                                            ? `GENERATING PROOF... (${currentProvingTime}MS)`
-                                            : isInitializing || isCalculatingInputs
-                                                ? 'CALCULATING INPUTS...'
-                                                : 'GENERATE SEND PROOF'
-                                    }
-                                </Button>
+                                <div className="flex flex-col gap-2">
+                                    <Button
+                                        onClick={proof ? handleSend : proveSend}
+                                        disabled={
+                                            proof
+                                                ? isPending || isConfirming || isSubmitting || isSimulating || !publicInputs.length || hasTransactionBeenSent || isRelaying
+                                                : isProving || isInitializing || isCalculatingInputs
+                                        }
+                                        className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {proof
+                                            ? isSimulating
+                                                ? 'SIMULATING...'
+                                                : isPending || isSubmitting
+                                                    ? 'PREPARING...'
+                                                    : isConfirming
+                                                        ? 'CONFIRMING...'
+                                                        : 'SEND ON NYDUS'
+                                            : isProving
+                                                ? `GENERATING PROOF... (${currentProvingTime}MS)`
+                                                : isInitializing || isCalculatingInputs
+                                                    ? 'CALCULATING INPUTS...'
+                                                    : 'GENERATE SEND PROOF'
+                                        }
+                                    </Button>
+                                    {proof && publicInputs.length > 0 && !hasTransactionBeenSent && (
+                                        <Button
+                                            onClick={handleRelaySend}
+                                            disabled={isRelaying || isPending || isConfirming || isSubmitting || isSimulating}
+                                            className="w-full bg-[rgba(100,100,255,1)] hover:bg-[rgba(100,100,255,0.8)] text-white font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isRelaying ? 'RELAYING...' : 'RELAY TRANSACTION'}
+                                        </Button>
+                                    )}
+                                </div>
                             )}
 
                             {proofError && (
@@ -2011,6 +2069,7 @@ export default function SendPage() {
                 isPending={isPending || isSubmitting}
                 isConfirming={isConfirming}
                 isConfirmed={isConfirmed}
+                isRelaying={isRelaying}
                 txHash={txHash}
                 error={txError || writeError?.message || proofError || null}
                 transactionType="SEND"

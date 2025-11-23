@@ -17,8 +17,7 @@ contract ProofOfHuman is SelfVerificationRoot {
     ISelfVerificationRoot.GenericDiscloseOutputV2 public lastOutput;
     bool public verificationSuccessful;
     bytes public lastUserData;
-    address public lastUserAddress;
-
+  
     // Verification config storage
     SelfStructs.VerificationConfigV2 public verificationConfig;
     bytes32 public verificationConfigId;

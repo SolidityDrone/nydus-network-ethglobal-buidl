@@ -44,6 +44,7 @@ import SyncingModal from '@/components/SyncingModal';
 import { useToast } from '@/components/Toast';
 import TokenSelector from '@/components/TokenSelector';
 import { generateProofRemote, checkProofServerStatus } from '@/lib/proof-server';
+import { relayTransaction } from '@/lib/relayer';
 
 export default function WithdrawPage() {
     const { toast } = useToast();
@@ -108,6 +109,7 @@ export default function WithdrawPage() {
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [isCalculatingInputs, setIsCalculatingInputs] = useState(false);
     const [proofMode, setProofMode] = useState<'local' | 'remote'>('local');
+    const [isRelaying, setIsRelaying] = useState(false);
     const [isCheckingServer, setIsCheckingServer] = useState(false);
     const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
 
@@ -1204,6 +1206,53 @@ export default function WithdrawPage() {
         }
     };
 
+    const handleRelayWithdraw = async () => {
+        if (!proof || !publicInputs || publicInputs.length === 0) {
+            setTxError('Proof and public inputs are required');
+            return;
+        }
+
+        try {
+            setIsRelaying(true);
+            setTxError(null);
+            setTxHash(null);
+            setShowTransactionModal(true);
+
+            const proofBytes = `0x${proof}`;
+
+            // Verifier expects exactly 28 public inputs
+            if (publicInputs.length < 28) {
+                throw new Error(`Expected 28 public inputs, but got ${publicInputs.length}. Please regenerate the proof.`);
+            }
+
+            const slicedInputs = publicInputs.slice(0, 28);
+            const publicInputsBytes32 = slicedInputs.map((input: string) => {
+                const hex = input.startsWith('0x') ? input.slice(2) : input;
+                return `0x${hex.padStart(64, '0')}` as `0x${string}`;
+            });
+
+            const arbitraryCalldata = arbitraryCalldataHash as `0x${string}`;
+
+            console.log('Relaying withdraw transaction...');
+
+            const result = await relayTransaction({
+                address: NydusAddress,
+                abi: NydusAbi as unknown as any[],
+                functionName: 'withdraw',
+                args: [proofBytes, publicInputsBytes32, arbitraryCalldata],
+            });
+
+            setTxHash(result.hash);
+            setHasTransactionBeenSent(true);
+            toast('Transaction relayed successfully', 'success');
+        } catch (error) {
+            console.error('Error in handleRelayWithdraw:', error);
+            setTxError(error instanceof Error ? error.message : 'Failed to relay transaction');
+        } finally {
+            setIsRelaying(false);
+        }
+    };
+
     // Update txHash when hash changes and mark transaction as sent
     React.useEffect(() => {
         if (hash) {
@@ -1692,32 +1741,43 @@ export default function WithdrawPage() {
                                             )}
 
                                             {/* Generate Proof / Send Transaction Button */}
-                                            <Button
-                                                onClick={proof ? handleWithdraw : proveWithdraw}
-                                                disabled={
-                                                    proof
-                                                        ? isPending || isConfirming || isSubmitting || isSimulating || isConfirmed || !publicInputs.length
-                                                        : isProving || isInitializing || isCalculatingInputs
-                                                }
-                                                className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {proof
-                                                    ? isSimulating
-                                                        ? 'SIMULATING...'
-                                                        : isPending || isSubmitting
-                                                            ? 'PREPARING...'
-                                                            : isConfirming
-                                                                ? 'CONFIRMING...'
-                                                                : 'WITHDRAW ON NYDUS'
-                                                    : isCalculatingInputs
-                                                        ? 'CALCULATING INPUTS...'
-                                                        : isProving
-                                                            ? `GENERATING PROOF... (${currentProvingTime}MS)`
-                                                            : isInitializing
-                                                                ? 'INITIALIZING BACKEND...'
-                                                                : 'GENERATE WITHDRAW PROOF'
-                                                }
-                                            </Button>
+                                            <div className="flex flex-col gap-2">
+                                                <Button
+                                                    onClick={proof ? handleWithdraw : proveWithdraw}
+                                                    disabled={
+                                                        proof
+                                                            ? isPending || isConfirming || isSubmitting || isSimulating || isConfirmed || !publicInputs.length || isRelaying
+                                                            : isProving || isInitializing || isCalculatingInputs
+                                                    }
+                                                    className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {proof
+                                                        ? isSimulating
+                                                            ? 'SIMULATING...'
+                                                            : isPending || isSubmitting
+                                                                ? 'PREPARING...'
+                                                                : isConfirming
+                                                                    ? 'CONFIRMING...'
+                                                                    : 'WITHDRAW ON NYDUS'
+                                                        : isCalculatingInputs
+                                                            ? 'CALCULATING INPUTS...'
+                                                            : isProving
+                                                                ? `GENERATING PROOF... (${currentProvingTime}MS)`
+                                                                : isInitializing
+                                                                    ? 'INITIALIZING BACKEND...'
+                                                                    : 'GENERATE WITHDRAW PROOF'
+                                                    }
+                                                </Button>
+                                                {proof && publicInputs.length > 0 && !hasTransactionBeenSent && (
+                                                    <Button
+                                                        onClick={handleRelayWithdraw}
+                                                        disabled={isRelaying || isPending || isConfirming || isSubmitting || isSimulating}
+                                                        className="w-full bg-[rgba(100,100,255,1)] hover:bg-[rgba(100,100,255,0.8)] text-white font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {isRelaying ? 'RELAYING...' : 'RELAY TRANSACTION'}
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -1772,6 +1832,7 @@ export default function WithdrawPage() {
                 isPending={isPending || isSubmitting}
                 isConfirming={isConfirming}
                 isConfirmed={isConfirmed}
+                isRelaying={isRelaying}
                 txHash={txHash}
                 error={txError || writeError?.message || proofError || null}
                 transactionType="WITHDRAW"

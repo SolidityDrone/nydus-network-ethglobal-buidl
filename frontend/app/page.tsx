@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Key, Zap, Shield } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -37,10 +38,13 @@ export default function Home() {
         </div>
 
         {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card>
             <CardHeader>
-              <CardTitle className="font-mono">$ CONFIDENTIALITY</CardTitle>
+              <CardTitle className="font-mono flex items-center gap-2">
+                <Key className="w-5 h-5" />
+                CONFIDENTIALITY
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm font-mono text-[#888888]">
@@ -51,22 +55,53 @@ export default function Home() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="font-mono">$ PERFORMANCE</CardTitle>
+              <CardTitle className="font-mono flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                PERFORMANCE
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm font-mono text-[#888888]">
-                BUILT ON CUTTING-EDGE ZERO-KNOWLEDGE PROOFS FOR INSTANT, VERIFIABLE TRANSACTIONS.
+                BUILT ON CUTTING-EDGE ZERO-KNOWLEDGE PROOFS FOR FAST, VERIFIABLE TRANSACTIONS.
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="font-mono">$ SECURITY</CardTitle>
+              <CardTitle className="font-mono flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                SECURITY
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm font-mono text-[#888888]">
                 CRYPTOGRAPHIC GUARANTEES ENSURE YOUR FUNDS ARE SAFE AND YOUR PRIVACY IS PROTECTED.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Technical Details */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-mono text-sm">TECHNICAL ARCHITECTURE</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm font-mono text-[#888888]">
+                NO MERKLE TREE. NOIR/SOLIDITY INTERSECTION USING PEDERSEN VECTOR COMMITMENTS & INNER PRODUCTS.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-mono text-sm">FAST DISCOVERY & PWA</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm font-mono text-[#888888]">
+                DESIGNED FOR FAST DISCOVERY AND CAN BE SERVED AS A PROGRESSIVE WEB APP.
               </p>
             </CardContent>
           </Card>

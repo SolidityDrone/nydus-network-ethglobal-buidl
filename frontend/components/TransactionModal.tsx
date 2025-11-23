@@ -12,6 +12,7 @@ interface TransactionModalProps {
     isConfirming?: boolean;
     isConfirmed?: boolean;
     isProving?: boolean;
+    isRelaying?: boolean;
     txHash: string | null;
     error: string | null;
     transactionType?: string;
@@ -84,6 +85,7 @@ export default function TransactionModal({
     isConfirming = false,
     isConfirmed = false,
     isProving = false,
+    isRelaying = false,
     txHash,
     error,
     transactionType = 'TRANSACTION',
@@ -250,11 +252,11 @@ export default function TransactionModal({
     if (!isOpen || !mounted) return null;
 
     // Don't show loading state if transaction is confirmed
-    const isLoading = (isPending || isConfirming || isProving || proofComplete) && !isConfirmed;
+    const isLoading = (isPending || isConfirming || isProving || proofComplete || isRelaying) && !isConfirmed;
     const showError = error && !isLoading && !isConfirmed && !proofComplete;
 
-    // Prevent closing when proof is generating or transaction is pending/confirming
-    const canClose = !isProving && !isPending && !isConfirming && !proofComplete;
+    // Prevent closing when proof is generating, relaying, or transaction is pending/confirming
+    const canClose = !isProving && !isPending && !isConfirming && !proofComplete && !isRelaying;
 
     const modalContent = (
         <div className="fixed inset-0 z-[9999] overflow-y-auto">
@@ -291,11 +293,13 @@ export default function TransactionModal({
                                                 text={
                                                     proofComplete
                                                         ? 'PROOF COMPLETE'
-                                                        : isProving
-                                                            ? 'GENERATING PROOF'
-                                                            : isPending
-                                                                ? 'WAITING FOR SIGNATURE'
-                                                                : 'CONFIRMING TRANSACTION'
+                                                        : isRelaying
+                                                            ? 'RELAYING TRANSACTION'
+                                                            : isProving
+                                                                ? 'GENERATING PROOF'
+                                                                : isPending
+                                                                    ? 'WAITING FOR SIGNATURE'
+                                                                    : 'CONFIRMING TRANSACTION'
                                                 }
                                                 delay={200}
                                             />
@@ -303,11 +307,13 @@ export default function TransactionModal({
                                         <p className="text-[10px] sm:text-xs font-mono text-[rgba(182,255,62,0.8)] uppercase">
                                             {proofComplete
                                                 ? 'FINALIZING...'
-                                                : isProving
-                                                    ? 'COMPUTING ZERO-KNOWLEDGE PROOF'
-                                                    : isPending
-                                                        ? 'PLEASE CHECK YOUR WALLET'
-                                                        : 'WAITING FOR BLOCKCHAIN CONFIRMATION'}
+                                                : isRelaying
+                                                    ? 'SENDING VIA RELAYER'
+                                                    : isProving
+                                                        ? 'COMPUTING ZERO-KNOWLEDGE PROOF'
+                                                        : isPending
+                                                            ? 'PLEASE CHECK YOUR WALLET'
+                                                            : 'WAITING FOR BLOCKCHAIN CONFIRMATION'}
                                         </p>
                                     </div>
 
@@ -319,16 +325,20 @@ export default function TransactionModal({
                                                 style={{
                                                     width: proofComplete
                                                         ? `${progress}%`
-                                                        : isProving
-                                                            ? `${progress}%`
-                                                            : isPending
-                                                                ? '40%'
-                                                                : '80%',
+                                                        : isRelaying
+                                                            ? '90%'
+                                                            : isProving
+                                                                ? `${progress}%`
+                                                                : isPending
+                                                                    ? '40%'
+                                                                    : '80%',
                                                     transition: proofComplete
                                                         ? 'width 1s ease-out'
-                                                        : isProving
-                                                            ? 'width 0.3s linear'
-                                                            : 'width 0.5s ease-in-out',
+                                                        : isRelaying
+                                                            ? 'width 0.5s ease-in-out'
+                                                            : isProving
+                                                                ? 'width 0.3s linear'
+                                                                : 'width 0.5s ease-in-out',
                                                 }}
                                             >
                                                 {/* Diagonal bars pattern - using SVG for perfect parallel bars (inclined to the right) */}

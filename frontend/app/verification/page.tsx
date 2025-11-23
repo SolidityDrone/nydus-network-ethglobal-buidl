@@ -131,8 +131,8 @@ export default function VerificationPage() {
                             <Image
                                 src="/SelfLogoWhite.png"
                                 alt="Self Protocol"
-                                width={40}
-                                height={40}
+                                width={52}
+                                height={52}
                                 className="rounded-md"
                             />
                         </div>
