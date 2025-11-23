@@ -417,7 +417,7 @@ contract Nydus is ProofOfHuman {
      */
     function initCommit(bytes calldata _proof, bytes32[] calldata _publicInputs) public {
 
-        if ( usedUserAddressToProofNonOfac[msg.sender] == bytes32(0)) {
+        if (usedUserAddressToProofNonOfac[msg.sender] == bytes32(0)) {
             revert OfacBannedBitch(msg.sender);
         }
         bool isValid = IVerifier(VerifiersConst.ENTRY_VERIFIER).verify(_proof, _publicInputs);

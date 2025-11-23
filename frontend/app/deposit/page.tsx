@@ -49,16 +49,6 @@ import { generateProofRemote, checkProofServerStatus } from '@/lib/proof-server'
 export default function DepositPage() {
     const { toast } = useToast();
     const zkAddress = useZkAddress();
-    const { currentNonce } = useAccountState();
-    const { useRouter } = require('next/navigation');
-    const router = useRouter();
-    
-    // Redirect to initialize if nonce is 0 or null
-    React.useEffect(() => {
-        if (currentNonce === null || currentNonce === BigInt(0)) {
-            router.push('/initialize');
-        }
-    }, [currentNonce, router]);
     const { setZkAddress, account } = useAccountContext();
     const accountState = useAccountState();
     const {
@@ -73,6 +63,13 @@ export default function DepositPage() {
         setPersonalCommitmentState,
         isSyncing
     } = accountState;
+    
+    // Redirect to initialize if nonce is 0 or null
+    React.useEffect(() => {
+        if (currentNonce === null || currentNonce === BigInt(0)) {
+            window.location.href = '/initialize';
+        }
+    }, [currentNonce]);
 
     // Fallback if setIsSyncing is not available (for debugging)
     if (!setIsSyncing || typeof setIsSyncing !== 'function') {

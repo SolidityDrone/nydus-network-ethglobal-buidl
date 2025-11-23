@@ -1,4 +1,4 @@
-export const NydusAddress = "0x39007F7cC9983ba69F3C9281fF7bE2197b794154" as const;
+export const NydusAddress = "0x027cAAf9f84CF0882d61174e06681F0463E4b859" as const;
 export const NydusAbi = [
   {
     "type": "constructor",

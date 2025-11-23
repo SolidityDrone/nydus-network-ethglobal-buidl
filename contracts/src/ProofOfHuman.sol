@@ -26,8 +26,7 @@ contract ProofOfHuman is SelfVerificationRoot {
     // Store OFAC enabled status separately for easy access
     bool public ofacEnabled;
 
-    // Mapping to store hashed user identifiers
-    mapping(bytes32 => bool) public verifiedUsers;
+  
     mapping(address => bytes32) public usedUserAddressToProofNonOfac;
     // Events for testing
     event VerificationCompleted(ISelfVerificationRoot.GenericDiscloseOutputV2 output, bytes userData);
@@ -70,7 +69,8 @@ contract ProofOfHuman is SelfVerificationRoot {
     {
         // Hash the userIdentifier and save it in the mapping
         bytes32 userIdentifierHash = keccak256(abi.encodePacked(output.userIdentifier));
-        usedUserAddressToProofNonOfac[msg.sender] = userIdentifierHash;
+        address userAddress = address(uint160(output.userIdentifier));
+        usedUserAddressToProofNonOfac[userAddress] = userIdentifierHash;
 
         verificationSuccessful = true;
         
