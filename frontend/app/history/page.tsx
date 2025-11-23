@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { usePublicClient } from 'wagmi';
+import { useCeloPublicClient } from '@/hooks/useCeloPublicClient';
 import { useZkAddress, useAccount as useAccountContext } from '@/context/AccountProvider';
 import { useAccountState } from '@/context/AccountStateProvider';
 import { useNonceDiscovery } from '@/hooks/useNonceDiscovery';
@@ -12,7 +12,7 @@ import { fetchTokenInfoBatch } from '@/lib/token-lookup';
 import { saveTransactionHistory, loadTransactionHistory } from '@/lib/indexeddb';
 
 export default function HistoryPage() {
-  const publicClient = usePublicClient();
+  const publicClient = useCeloPublicClient();
   const { account } = useAccountContext();
   const zkAddress = useZkAddress();
   const { currentNonce } = useAccountState();

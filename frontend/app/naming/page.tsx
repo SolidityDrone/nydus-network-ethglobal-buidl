@@ -31,6 +31,10 @@ export default function NamingPage() {
   const [selectedSubname, setSelectedSubname] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
+  
+  // Verification state (optional)
+  const [includeVerification, setIncludeVerification] = useState(false);
+  const [verificationProof, setVerificationProof] = useState<string | null>(null);
 
   // Load all subdomains when address changes
   useEffect(() => {
@@ -38,6 +42,16 @@ export default function NamingPage() {
       loadSubdomains();
     }
   }, [address]);
+
+  // Load verification proof from localStorage if available
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedProof = localStorage.getItem('selfVerificationProof');
+      if (storedProof) {
+        setVerificationProof(storedProof);
+      }
+    }
+  }, []);
 
   // Check availability when subname changes (only for registration)
   useEffect(() => {
@@ -128,11 +142,17 @@ export default function NamingPage() {
       showToast('Please sign the message in your wallet...', 'success');
       const signature = await signMessageAsync({ message: challenge });
 
-      // Step 3: Register the subdomain with the signature
-      console.log('Sending to API with description:', zkAddress);
+      // Step 3: Construct JSON description
+      const descriptionJson = JSON.stringify({
+        zkAddress: zkAddress,
+        selfOfacStatus: includeVerification ? true : "nil",
+        selfProof: includeVerification && verificationProof ? verificationProof : "nil",
+      });
+
+      console.log('Sending to API with description JSON:', descriptionJson);
       const response = await registerSubdomain({
         subname,
-        description: zkAddress, // Use zkAddress as description
+        description: descriptionJson, // Use JSON object as description
         resolutionAddress: address, // Use wallet address as resolution address
         userSignature: signature,
         userAddress: address,
@@ -186,10 +206,16 @@ export default function NamingPage() {
       showToast('Please sign the message in your wallet...', 'success');
       const signature = await signMessageAsync({ message: challenge });
 
-      // Step 3: Update the subdomain with the signature
+      // Step 3: Construct JSON description
+      const descriptionJson = JSON.stringify({
+        zkAddress: zkAddress,
+        selfOfacStatus: includeVerification ? true : "nil",
+        selfProof: includeVerification && verificationProof ? verificationProof : "nil",
+      });
+
       const response = await updateSubdomain({
         subname: selectedSubname,
-        description: zkAddress, // Use zkAddress as description
+        description: descriptionJson, // Use JSON object as description
         resolutionAddress: address, // Use wallet address as resolution address
         userSignature: signature,
         userAddress: address,
@@ -345,13 +371,35 @@ export default function NamingPage() {
                   {zkAddress && (
                     <div className="bg-[#0a0a0a] border border-[#333333] rounded p-3">
                       <label className="block text-xs font-mono text-[#888888] mb-1">
-                        DESCRIPTION (ZK ADDRESS)
+                        ZK ADDRESS
                       </label>
                       <p className="text-xs font-mono text-[rgba(182,255,62,1)] break-all">
                         {zkAddress}
                       </p>
                     </div>
                   )}
+
+                  {/* Optional Verification Toggle */}
+                  <div className="bg-[#0a0a0a] border border-[#333333] rounded p-3">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeVerification}
+                        onChange={(e) => setIncludeVerification(e.target.checked)}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-xs font-mono text-[#888888]">
+                        Include Self Protocol Verification (Optional)
+                      </span>
+                    </label>
+                    {includeVerification && (
+                      <p className="text-xs font-mono text-[#666666] mt-2">
+                        {verificationProof 
+                          ? '✓ Verification proof available' 
+                          : '⚠ No verification proof found. Complete verification first.'}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <Button
@@ -423,13 +471,35 @@ export default function NamingPage() {
                     {zkAddress && (
                       <div className="bg-[#0a0a0a] border border-[#333333] rounded p-3">
                         <label className="block text-xs font-mono text-[#888888] mb-1">
-                          DESCRIPTION (ZK ADDRESS)
+                          ZK ADDRESS
                         </label>
                         <p className="text-xs font-mono text-[rgba(182,255,62,1)] break-all">
                           {zkAddress}
                         </p>
                       </div>
                     )}
+
+                    {/* Optional Verification Toggle */}
+                    <div className="bg-[#0a0a0a] border border-[#333333] rounded p-3">
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={includeVerification}
+                          onChange={(e) => setIncludeVerification(e.target.checked)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-xs font-mono text-[#888888]">
+                          Include Self Protocol Verification (Optional)
+                        </span>
+                      </label>
+                      {includeVerification && (
+                        <p className="text-xs font-mono text-[#666666] mt-2">
+                          {verificationProof 
+                            ? '✓ Verification proof available' 
+                            : '⚠ No verification proof found. Complete verification first.'}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <Button
@@ -496,17 +566,43 @@ export default function NamingPage() {
 
                         <div className="bg-[#0a0a0a] border border-[#222222] rounded p-2">
                           <p className="text-xs font-mono text-[#666666] mb-1">
-                            ZK ADDRESS (DESCRIPTION):
+                            ZK ADDRESS:
                           </p>
-                          {subdomain.description ? (
-                            <p className="text-xs font-mono text-[rgba(182,255,62,1)] break-all">
-                              {subdomain.description}
-                            </p>
-                          ) : (
-                            <p className="text-xs font-mono text-red-500">
-                              Not set (subdomain registered without zkAddress)
-                            </p>
-                          )}
+                          {(() => {
+                            try {
+                              if (!subdomain.description) {
+                                return (
+                                  <p className="text-xs font-mono text-red-500">
+                                    Not set (subdomain registered without zkAddress)
+                                  </p>
+                                );
+                              }
+                              
+                              // Try to parse as JSON
+                              const parsed = JSON.parse(subdomain.description);
+                              const zkAddr = parsed.zkAddress || subdomain.description;
+                              
+                              return (
+                                <>
+                                  <p className="text-xs font-mono text-[rgba(182,255,62,1)] break-all">
+                                    {zkAddr}
+                                  </p>
+                                  {parsed.selfOfacStatus && parsed.selfOfacStatus !== "nil" && (
+                                    <p className="text-xs font-mono text-[#888888] mt-1">
+                                      ✓ Verified (OFAC: {String(parsed.selfOfacStatus)})
+                                    </p>
+                                  )}
+                                </>
+                              );
+                            } catch {
+                              // If not JSON, display as-is (backward compatibility)
+                              return (
+                                <p className="text-xs font-mono text-[rgba(182,255,62,1)] break-all">
+                                  {subdomain.description}
+                                </p>
+                              );
+                            }
+                          })()}
                         </div>
                       </div>
                       {showUpdateForm && (

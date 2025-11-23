@@ -40,7 +40,13 @@ export default function Navbar() {
 
     // Filter navigation based on nonce
     const navigation = React.useMemo(() => {
-        if (currentNonce === null || currentNonce === BigInt(0)) {
+        // More robust check: treat null, undefined, or 0 as uninitialized
+        const isUninitialized = currentNonce === null || 
+                                currentNonce === undefined || 
+                                currentNonce === BigInt(0) ||
+                                (typeof currentNonce === 'bigint' && currentNonce === BigInt(0));
+        
+        if (isUninitialized) {
             return allNavigation.filter(item => item.name === 'Home' || item.name === 'Initialize');
         } else {
             return allNavigation.filter(item => item.name !== 'Initialize');

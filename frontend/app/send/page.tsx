@@ -3,7 +3,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAccount as useAccountContext, useZkAddress } from '@/context/AccountProvider';
 import { useAccountState } from '@/context/AccountStateProvider';
-import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useCeloPublicClient } from '@/hooks/useCeloPublicClient';
 import { useSignMessage } from 'wagmi';
 import { createPublicClient, http } from 'viem';
 import { sepolia } from 'viem/chains';
@@ -67,11 +68,18 @@ export default function SendPage() {
     const { computeCurrentNonce, reconstructPersonalCommitmentState } = useNonceDiscovery();
     const { signMessageAsync, isPending: isSigning } = useSignMessage();
     const { address } = useWagmiAccount();
+
+    // Redirect to initialize if nonce is 0 or null
+    React.useEffect(() => {
+        if (currentNonce === null || currentNonce === BigInt(0)) {
+            window.location.href = '/initialize';
+        }
+    }, [currentNonce]);
     const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
     const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
         hash,
     });
-    const publicClient = usePublicClient();
+    const publicClient = useCeloPublicClient();
 
     const [tokenAddress, setTokenAddress] = useState<string>('');
     const [amount, setAmount] = useState<string>('');
@@ -144,12 +152,31 @@ export default function SendPage() {
                     });
 
                     // Get the description text record using viem
-                    const zkAddress = await ensClient.getEnsText({
+                    const descriptionText = await ensClient.getEnsText({
                         name: fullEnsName,
                         key: 'description',
                     });
 
-                    console.log('ENS text record (description):', zkAddress);
+                    console.log('ENS text record (description):', descriptionText);
+
+                    let zkAddress: string | null = null;
+
+                    // Try to parse as JSON first
+                    try {
+                        if (descriptionText) {
+                            const parsed = JSON.parse(descriptionText);
+                            if (parsed.zkAddress) {
+                                zkAddress = parsed.zkAddress;
+                                console.log('Parsed zkAddress from JSON:', zkAddress);
+                            }
+                        }
+                    } catch {
+                        // If not JSON, treat as plain string (backward compatibility)
+                        if (descriptionText && descriptionText.startsWith('zk')) {
+                            zkAddress = descriptionText;
+                            console.log('Using description as plain zkAddress (backward compatibility)');
+                        }
+                    }
 
                     if (zkAddress && zkAddress.startsWith('zk')) {
                         console.log('ENS resolved to zkAddress:', zkAddress);
@@ -1272,7 +1299,7 @@ export default function SendPage() {
 
             const client = publicClient || createPublicClient({
                 chain: celoSepolia,
-                transport: http()
+                transport: http(process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org')
             });
 
             setIsSimulating(true);

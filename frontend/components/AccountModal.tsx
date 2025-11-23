@@ -5,7 +5,7 @@ import { useZkAddress, useAccount } from '@/context/AccountProvider';
 import { useAccountState } from '@/context/AccountStateProvider';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { usePublicClient } from 'wagmi';
+import { useCeloPublicClient } from '@/hooks/useCeloPublicClient';
 import { NydusAddress, NydusAbi } from '@/lib/abi/NydusConst';
 import { poseidonCtrDecrypt } from '@/lib/poseidon-ctr-encryption';
 import { performDHKeyExchange } from '@/lib/dh-utils';
@@ -46,7 +46,7 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
 
   const zkAddress = useZkAddress();
   const { account } = useAccount();
-  const publicClient = usePublicClient();
+  const publicClient = useCeloPublicClient();
   const router = useRouter();
 
   // State for nullifiers per token

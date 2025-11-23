@@ -3,7 +3,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAccount as useAccountContext, useZkAddress } from '@/context/AccountProvider';
 import { useAccountState } from '@/context/AccountStateProvider';
-import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useCeloPublicClient } from '@/hooks/useCeloPublicClient';
 import { useSignMessage } from 'wagmi';
 import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
@@ -48,6 +49,16 @@ import { generateProofRemote, checkProofServerStatus } from '@/lib/proof-server'
 export default function DepositPage() {
     const { toast } = useToast();
     const zkAddress = useZkAddress();
+    const { currentNonce } = useAccountState();
+    const { useRouter } = require('next/navigation');
+    const router = useRouter();
+    
+    // Redirect to initialize if nonce is 0 or null
+    React.useEffect(() => {
+        if (currentNonce === null || currentNonce === BigInt(0)) {
+            router.push('/initialize');
+        }
+    }, [currentNonce, router]);
     const { setZkAddress, account } = useAccountContext();
     const accountState = useAccountState();
     const {
@@ -70,11 +81,18 @@ export default function DepositPage() {
     const { computeCurrentNonce, reconstructPersonalCommitmentState } = useNonceDiscovery();
     const { signMessageAsync, isPending: isSigning } = useSignMessage();
     const { address } = useWagmiAccount();
+    
+    // Redirect to initialize if nonce is 0 or null
+    React.useEffect(() => {
+        if (currentNonce === null || currentNonce === BigInt(0)) {
+            window.location.href = '/initialize';
+        }
+    }, [currentNonce]);
     const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
     const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
         hash,
     });
-    const publicClient = usePublicClient();
+    const publicClient = useCeloPublicClient();
 
     const [tokenAddress, setTokenAddress] = useState<string>('');
     const [amount, setAmount] = useState<string>('');
@@ -1310,7 +1328,7 @@ export default function DepositPage() {
             // Create public client if not available from wagmi
             const client = publicClient || createPublicClient({
                 chain: celoSepolia,
-                transport: http()
+                transport: http(process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org')
             });
 
             // Simulate the transaction first to catch errors

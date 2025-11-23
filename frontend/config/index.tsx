@@ -3,10 +3,10 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { defineChain } from 'viem'
 
 // Get RPC URL from environment variable
-const rpcUrl = process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'
+export const rpcUrl = process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'
 
 // Celo Sepolia chain definition with custom RPC URL
-const celoSepolia = defineChain({
+export const celoSepolia = defineChain({
     id: 11142220,
     name: 'Celo Sepolia',
     nativeCurrency: {
@@ -48,6 +48,21 @@ export const wagmiAdapter = new WagmiAdapter({
 })
 
 export const config = wagmiAdapter.wagmiConfig
+
+// Log the config to verify RPC URL is set
+if (typeof window !== 'undefined') {
+    console.log('Wagmi config chains:', config.chains);
+    console.log('Wagmi config transports:', config.transports);
+}
+
+// Helper function to get a properly configured public client for Celo Sepolia
+export function getCeloPublicClient() {
+    const { createPublicClient, http } = require('viem');
+    return createPublicClient({
+        chain: celoSepolia,
+        transport: http(rpcUrl)
+    });
+}
 
 // Ensure the config uses the correct RPC URL for Celo Sepolia
 // The chain definition already includes the RPC URL, but we can verify it's being used

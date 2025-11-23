@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { usePublicClient, useAccount } from 'wagmi';
+import { useAccount } from 'wagmi';
+import { useCeloPublicClient } from './useCeloPublicClient';
 import { NydusAddress, NydusAbi } from '@/lib/abi/NydusConst';
 import { pedersenCommitmentNonHiding, grumpkinPointEqual, grumpkinSubtract, grumpkinAddPoints, aggregateOpeningValue, GrumpkinPoint } from '@/lib/pedersen-commitments';
 import { useZkAddress, useAccount as useAccountContext } from '@/context/AccountProvider';
@@ -48,7 +49,7 @@ export function useNonceDiscovery() {
   const [balanceEntries, setBalanceEntries] = useState<BalanceEntry[]>([]);
   const [isDecrypting, setIsDecrypting] = useState(false);
   
-  const publicClient = usePublicClient();
+  const publicClient = useCeloPublicClient();
   const { address } = useAccount();
   const zkAddress = useZkAddress(); // Returns string | null, not an object
   const { account } = useAccountContext();

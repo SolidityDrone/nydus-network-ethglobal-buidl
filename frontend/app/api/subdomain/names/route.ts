@@ -70,9 +70,27 @@ export async function GET(request: NextRequest) {
             // Get the description from records.texts array
             const texts = subname.records?.texts || [];
             const descriptionRecord = texts.find((t: any) => t.key === 'description');
-            const description = descriptionRecord?.value || '';
+            let description = descriptionRecord?.value || '';
 
             console.log('Texts array:', texts);
+            console.log('Raw description:', description);
+
+            // Try to parse as JSON and extract zkAddress for backward compatibility
+            try {
+                if (description) {
+                    const parsed = JSON.parse(description);
+                    // If it's a JSON object with zkAddress, keep the full JSON
+                    // The frontend will parse it to extract zkAddress
+                    if (parsed.zkAddress) {
+                        // Keep the full JSON string so frontend can parse it
+                        description = description;
+                    }
+                }
+            } catch {
+                // If not JSON, keep as-is (backward compatibility with old string format)
+                console.log('Description is not JSON, keeping as string');
+            }
+
             console.log('Final description:', description);
 
             return {

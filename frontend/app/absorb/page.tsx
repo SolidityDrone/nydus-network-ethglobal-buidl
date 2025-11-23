@@ -3,7 +3,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAccount as useAccountContext, useZkAddress } from '@/context/AccountProvider';
 import { useAccountState } from '@/context/AccountStateProvider';
-import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useCeloPublicClient } from '@/hooks/useCeloPublicClient';
 import { useSignMessage } from 'wagmi';
 import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
@@ -66,11 +67,18 @@ export default function AbsorbPage() {
     const { computeCurrentNonce, reconstructPersonalCommitmentState } = useNonceDiscovery();
     const { signMessageAsync, isPending: isSigning } = useSignMessage();
     const { address } = useWagmiAccount();
+    
+    // Redirect to initialize if nonce is 0 or null
+    React.useEffect(() => {
+        if (currentNonce === null || currentNonce === BigInt(0)) {
+            window.location.href = '/initialize';
+        }
+    }, [currentNonce]);
     const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
     const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
         hash,
     });
-    const publicClient = usePublicClient();
+    const publicClient = useCeloPublicClient();
 
     // Note selection state
     const [decryptedNotes, setDecryptedNotes] = useState<Array<{
@@ -1635,7 +1643,7 @@ export default function AbsorbPage() {
 
             const client = publicClient || createPublicClient({
                 chain: celoSepolia,
-                transport: http()
+                transport: http(process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org')
             });
 
             setIsSimulating(true);

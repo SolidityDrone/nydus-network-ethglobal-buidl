@@ -3,7 +3,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAccount as useAccountContext, useZkAddress } from '@/context/AccountProvider';
 import { useAccountState } from '@/context/AccountStateProvider';
-import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useCeloPublicClient } from '@/hooks/useCeloPublicClient';
 import { useSignMessage } from 'wagmi';
 import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
@@ -62,6 +63,13 @@ export default function WithdrawPage() {
         isSyncing
     } = accountState;
     const { computeCurrentNonce, reconstructPersonalCommitmentState } = useNonceDiscovery();
+    
+    // Redirect to initialize if nonce is 0 or null
+    React.useEffect(() => {
+        if (currentNonce === null || currentNonce === BigInt(0)) {
+            window.location.href = '/initialize';
+        }
+    }, [currentNonce]);
 
     // Check proof server status when switching to remote mode
     React.useEffect(() => {
@@ -83,7 +91,7 @@ export default function WithdrawPage() {
     const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
         hash,
     });
-    const publicClient = usePublicClient();
+    const publicClient = useCeloPublicClient();
 
     const [tokenAddress, setTokenAddress] = useState<string>('');
     const [amount, setAmount] = useState<string>('');
@@ -1136,7 +1144,7 @@ export default function WithdrawPage() {
 
             const client = publicClient || createPublicClient({
                 chain: celoSepolia,
-                transport: http()
+                transport: http(process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org')
             });
 
             setIsSimulating(true);

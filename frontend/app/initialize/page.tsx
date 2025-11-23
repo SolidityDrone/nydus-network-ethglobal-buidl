@@ -22,7 +22,8 @@ const celoSepolia = defineChain({
     default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
   },
 });
-import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useSignMessage } from 'wagmi';
+import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, useSignMessage } from 'wagmi';
+import { useCeloPublicClient } from '@/hooks/useCeloPublicClient';
 import { useAccount as useAccountContext, useZkAddress } from '@/context/AccountProvider';
 import { Noir } from '@noir-lang/noir_js';
 import { CachedUltraHonkBackend } from '@/lib/cached-ultra-honk-backend';
@@ -55,6 +56,8 @@ export default function InitializePage() {
     const [selfApp, setSelfApp] = useState<SelfApp | null>(null);
     const [universalLink, setUniversalLink] = useState<string>('');
     const [verificationStatus, setVerificationStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
+    const [verificationResult, setVerificationResult] = useState<any>(null);
+    const [verificationProof, setVerificationProof] = useState<string | null>(null);
     const [countdown, setCountdown] = useState<number>(5);
 
     const [tokenAddress, setTokenAddress] = useState('');
@@ -67,7 +70,6 @@ export default function InitializePage() {
     const [proofError, setProofError] = useState<string | null>(null);
     const [provingTime, setProvingTime] = useState<number | null>(null);
     const [currentProvingTime, setCurrentProvingTime] = useState<number>(0);
-    const [sharedArrayBufferWarning, setSharedArrayBufferWarning] = useState<string | null>(null);
     const [isInitializing, setIsInitializing] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
     const [initializationTime, setInitializationTime] = useState<number | null>(null);
@@ -84,7 +86,7 @@ export default function InitializePage() {
     const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
         hash,
     });
-    const publicClient = usePublicClient();
+    const publicClient = useCeloPublicClient();
 
     // Backend and Noir references
     const backendRef = useRef<CachedUltraHonkBackend | null>(null);
@@ -173,19 +175,6 @@ export default function InitializePage() {
         };
     }, [isProving]);
 
-    // Check for SharedArrayBuffer support on component mount
-    React.useEffect(() => {
-        const hasSharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined';
-        console.log('SharedArrayBuffer check:', hasSharedArrayBuffer);
-        console.log('Window crossOriginIsolated:', window.crossOriginIsolated);
-        console.log('Document headers:', document.referrer);
-
-        if (!hasSharedArrayBuffer) {
-            setSharedArrayBufferWarning('Multithreading is disabled. Proof generation may be slower. Please ensure your server has COOP/COEP headers enabled. Restart your dev server after updating next.config.js');
-        } else {
-            console.log('✅ SharedArrayBuffer is available - multithreading enabled!');
-        }
-    }, []);
 
 
     // Initialize backend and Noir
@@ -509,7 +498,7 @@ export default function InitializePage() {
             // Create public client if not available from wagmi
             const client = publicClient || createPublicClient({
                 chain: celoSepolia,
-                transport: http()
+                transport: http(process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org')
             });
 
             // Simulate the transaction first to catch errors
@@ -649,6 +638,48 @@ export default function InitializePage() {
     // Self Protocol verification handlers
     const handleSuccessfulVerification = (result: any) => {
         console.log("Verification successful!", result);
+        console.log("Full result object:", JSON.stringify(result, null, 2));
+        console.log("Result keys:", Object.keys(result || {}));
+        
+        // Store the full result
+        setVerificationResult(result);
+        
+        // Check for proof in various possible locations
+        let foundProof = null;
+        
+        if (result?.proof) {
+            console.log("✓ Proof found in result.proof:", result.proof);
+            foundProof = result.proof;
+        } else if (result?.data?.proof) {
+            console.log("✓ Proof found in result.data.proof:", result.data.proof);
+            foundProof = result.data.proof;
+        } else if (result?.verificationProof) {
+            console.log("✓ Proof found in result.verificationProof:", result.verificationProof);
+            foundProof = result.verificationProof;
+        } else if (result?.verification?.proof) {
+            console.log("✓ Proof found in result.verification.proof:", result.verification.proof);
+            foundProof = result.verification.proof;
+        } else {
+            console.log("⚠ No proof found in result object");
+        }
+        
+        if (foundProof) {
+            const proofStr = typeof foundProof === 'string' ? foundProof : JSON.stringify(foundProof);
+            setVerificationProof(proofStr);
+            // Store in localStorage for use in naming page
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('selfVerificationProof', proofStr);
+            }
+            console.log("✓ Verification proof stored:", proofStr);
+        }
+        
+        if (result?.discloseOutput) {
+            console.log("Disclose output:", result.discloseOutput);
+        }
+        if (result?.userIdentifier) {
+            console.log("User identifier:", result.userIdentifier);
+        }
+        
         setVerificationStatus('success');
         toast('Identity verification successful!', 'success');
         setCurrentStep(2);
@@ -755,13 +786,64 @@ export default function InitializePage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
-                        <div className="flex flex-col items-center justify-center py-12">
+                        <div className="flex flex-col items-center justify-center py-12 space-y-4">
                             <div className="text-4xl font-mono font-bold text-[rgba(182,255,62,1)] mb-4">
                                 {countdown}
                             </div>
                             <p className="text-[#888888] font-mono text-sm uppercase">
                                 {countdown > 0 ? 'Preparing initialization...' : 'Ready to initialize!'}
                             </p>
+                            
+                            {/* Display verification proof if available */}
+                            {verificationProof && (
+                                <Card className="mt-4 border-[rgba(182,255,62,0.5)] bg-[#0a0a0a] w-full">
+                                    <CardHeader>
+                                        <CardTitle className="text-sm font-mono font-bold uppercase text-[rgba(182,255,62,1)]">
+                                            ✓ Verification Proof Obtained
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-4">
+                                        <div className="space-y-2">
+                                            <p className="text-xs font-mono text-[#888888] uppercase">Proof:</p>
+                                            <p className="text-xs font-mono text-white break-all">
+                                                {typeof verificationProof === 'string' 
+                                                    ? verificationProof.slice(0, 100) + '...' 
+                                                    : JSON.stringify(verificationProof).slice(0, 100) + '...'}
+                                            </p>
+                                            <Button
+                                                onClick={() => {
+                                                    const proofStr = typeof verificationProof === 'string' 
+                                                        ? verificationProof 
+                                                        : JSON.stringify(verificationProof);
+                                                    navigator.clipboard.writeText(proofStr);
+                                                    toast('Proof copied to clipboard!', 'success');
+                                                }}
+                                                size="sm"
+                                                variant="outline"
+                                                className="text-xs mt-2"
+                                            >
+                                                Copy Proof
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+                            
+                            {/* Display full result for debugging */}
+                            {verificationResult && (
+                                <Card className="mt-4 border-[#333333] bg-[#0a0a0a] w-full">
+                                    <CardHeader>
+                                        <CardTitle className="text-xs font-mono font-bold uppercase text-white">
+                                            Debug: Full Result
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-4">
+                                        <pre className="text-[10px] font-mono text-[#888888] overflow-auto max-h-40">
+                                            {JSON.stringify(verificationResult, null, 2)}
+                                        </pre>
+                                    </CardContent>
+                                </Card>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -871,13 +953,6 @@ export default function InitializePage() {
                                 </Card>
                             )}
 
-                            {sharedArrayBufferWarning && (
-                                <Card className="border-[#333333] bg-[#0a0a0a]">
-                                    <CardContent className="pt-6">
-                                        <p className="text-sm font-mono text-white uppercase">{sharedArrayBufferWarning}</p>
-                                    </CardContent>
-                                </Card>
-                            )}
 
                             {proof && (
                                 <Card>
