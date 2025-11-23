@@ -116,33 +116,28 @@ export async function POST(request: NextRequest) {
         // Get gas price
         const gasPrice = await publicClient.getGasPrice();
 
-        // Prepare transaction
-        const transactionRequest: {
-            to: `0x${string}`;
-            data: `0x${string}`;
-            nonce: bigint;
-            gasPrice: bigint;
-            gas?: bigint;
-        } = {
-            to: address as `0x${string}`,
-            data: data,
-            nonce: BigInt(nonce),
-            gasPrice: gasPrice,
-        };
-
-        // Estimate gas
+        // Estimate gas first
+        let gasEstimate: bigint;
         try {
-            const gasEstimate = await publicClient.estimateGas({
+            gasEstimate = await publicClient.estimateGas({
                 account: account.address,
                 to: address as `0x${string}`,
                 data: data,
             });
-            transactionRequest.gas = gasEstimate;
         } catch (error) {
             console.warn('Gas estimation failed, using default:', error);
             // Use a default gas limit if estimation fails
-            transactionRequest.gas = BigInt(500000);
+            gasEstimate = BigInt(500000);
         }
+
+        // Prepare transaction (nonce must be number, not bigint)
+        const transactionRequest = {
+            to: address as `0x${string}`,
+            data: data,
+            nonce: nonce, // number, not bigint
+            gasPrice: gasPrice,
+            gas: gasEstimate,
+        };
 
         // Sign and send transaction
         const hash = await walletClient.sendTransaction(transactionRequest);

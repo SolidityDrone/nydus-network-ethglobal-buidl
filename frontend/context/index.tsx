@@ -1,6 +1,6 @@
 'use client'
 
-import { wagmiAdapter, projectId, networks } from '@/config'
+import { wagmiAdapter, projectId, networks, celoSepolia } from '@/config'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createAppKit } from '@reown/appkit/react'
 import React, { type ReactNode } from 'react'
@@ -22,11 +22,10 @@ const metadata = {
 }
 
 // Create the modal
-const celoSepolia = networks[0]
 const modal = createAppKit({
     adapters: [wagmiAdapter],
     projectId,
-    networks: networks,
+    networks: networks as any, // AppKitNetwork[] - Viem chains are compatible with AppKit networks
     defaultNetwork: celoSepolia,
     metadata: metadata,
     features: {

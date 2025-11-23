@@ -52,7 +52,6 @@ export const config = wagmiAdapter.wagmiConfig
 // Log the config to verify RPC URL is set
 if (typeof window !== 'undefined') {
     console.log('Wagmi config chains:', config.chains);
-    console.log('Wagmi config transports:', config.transports);
 }
 
 // Helper function to get a properly configured public client for Celo Sepolia

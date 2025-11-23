@@ -161,8 +161,8 @@ export default function VerificationPage() {
                                     <div className="p-4 border border-[#333333] bg-white rounded-lg">
                                         <SelfQRcodeWrapper
                                             selfApp={selfApp}
-                                            onSuccess={handleSuccessfulVerification}
-                                            onError={handleVerificationError}
+                                            onSuccess={handleSuccessfulVerification as any}
+                                            onError={handleVerificationError as any}
                                         />
                                     </div>
                                     <p className="mt-4 text-center text-[#888888] font-mono text-xs sm:text-sm uppercase">
