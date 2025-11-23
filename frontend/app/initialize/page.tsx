@@ -1,26 +1,27 @@
 'use client';
 
 import React, { useState, useRef, useCallback } from 'react';
-import { createWalletClient, custom, recoverMessageAddress, keccak256, stringToHex, recoverPublicKey, createPublicClient, http } from 'viem';
+import { useRouter } from 'next/navigation';
+import { createPublicClient, http } from 'viem';
 import { defineChain } from 'viem';
 
 // Celo Sepolia chain definition
 const celoSepolia = defineChain({
-  id: 11142220,
-  name: 'Celo Sepolia',
-  nativeCurrency: {
-    decimals: 18,
-    name: 'CELO',
-    symbol: 'CELO',
-  },
-  rpcUrls: {
-    default: {
-      http: [process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'],
+    id: 11142220,
+    name: 'Celo Sepolia',
+    nativeCurrency: {
+        decimals: 18,
+        name: 'CELO',
+        symbol: 'CELO',
     },
-  },
-  blockExplorers: {
-    default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
-  },
+    rpcUrls: {
+        default: {
+            http: [process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'],
+        },
+    },
+    blockExplorers: {
+        default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
+    },
 });
 import { useAccount as useWagmiAccount, useWriteContract, useWaitForTransactionReceipt, useSignMessage } from 'wagmi';
 import { useCeloPublicClient } from '@/hooks/useCeloPublicClient';
@@ -39,23 +40,23 @@ import TransactionModal from '@/components/TransactionModal';
 import { useToast } from '@/components/Toast';
 import { getUniversalLink } from "@selfxyz/core";
 import { SelfQRcodeWrapper, SelfAppBuilder, countries, type SelfApp } from "@selfxyz/qrcode";
-import { ethers } from "ethers";
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 export default function InitializePage() {
+    const router = useRouter();
     const { toast } = useToast();
     const zkAddress = useZkAddress();
     const { setZkAddress, account } = useAccountContext();
     const { address } = useWagmiAccount();
     const { signMessageAsync, isPending: isSigning } = useSignMessage();
-    const { setCurrentNonce, setBalanceEntries, setUserKey: setContextUserKey, setPersonalCommitmentState, getPersonalCommitmentState } = useAccountState();
-    
-    // 3-step flow state
+    const { currentNonce, setCurrentNonce, setBalanceEntries, setUserKey: setContextUserKey } = useAccountState();
+
+    // 4-step flow state
     const [currentStep, setCurrentStep] = useState<Step>(1);
     const [selfApp, setSelfApp] = useState<SelfApp | null>(null);
     const [universalLink, setUniversalLink] = useState<string>('');
-    const [verificationStatus, setVerificationStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
+    const [, setVerificationStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
     const [verificationResult, setVerificationResult] = useState<any>(null);
     const [verificationProof, setVerificationProof] = useState<string | null>(null);
     const [countdown, setCountdown] = useState<number>(5);
@@ -72,8 +73,8 @@ export default function InitializePage() {
     const [currentProvingTime, setCurrentProvingTime] = useState<number>(0);
     const [isInitializing, setIsInitializing] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
-    const [initializationTime, setInitializationTime] = useState<number | null>(null);
-    const [cacheInfo, setCacheInfo] = useState<{ size: number; entries?: string[] } | null>(null);
+    const [_initializationTime, setInitializationTime] = useState<number | null>(null);
+    const [_cacheInfo, setCacheInfo] = useState<{ size: number; entries?: string[] } | null>(null);
     const [publicInputs, setPublicInputs] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSimulating, setIsSimulating] = useState(false);
@@ -91,6 +92,13 @@ export default function InitializePage() {
     // Backend and Noir references
     const backendRef = useRef<CachedUltraHonkBackend | null>(null);
     const noirRef = useRef<Noir | null>(null);
+
+    // Redirect to /deposit if nonce > 0 (account already initialized)
+    React.useEffect(() => {
+        if (currentNonce !== null && currentNonce > BigInt(0)) {
+            router.push('/deposit');
+        }
+    }, [currentNonce, router]);
 
     // Initialize Self Protocol App
     React.useEffect(() => {
@@ -147,8 +155,8 @@ export default function InitializePage() {
             setCountdown((prev) => {
                 if (prev <= 1) {
                     clearInterval(timer);
-                    setCurrentStep(3);
-                    toast('Ready to initialize!', 'success');
+                    setCurrentStep(3); // Go to ENS step
+                    toast('Ready to register ENS subdomain!', 'success');
                     return 0;
                 }
                 return prev - 1;
@@ -231,7 +239,7 @@ export default function InitializePage() {
         }
     }, []);
 
-    const handleClearCache = useCallback(async () => {
+    const _handleClearCache = useCallback(async () => {
         try {
             await CachedUltraHonkBackend.clearCache();
             await loadCacheInfo();
@@ -394,9 +402,9 @@ export default function InitializePage() {
             const amountFloat = parseFloat(amount) || 0;
             const amountInWei = BigInt(Math.floor(amountFloat * Math.pow(10, decimals)));
             const amountHex = '0x' + amountInWei.toString(16);
-            
+
             console.log(`[Initialize] Amount conversion: ${amountFloat} (decimal) -> ${amountInWei.toString()} (wei) = ${amountHex}`);
-            
+
             // Prepare inputs for nydus_entry circuit
             const inputs = {
                 user_key: userKey,
@@ -640,13 +648,13 @@ export default function InitializePage() {
         console.log("Verification successful!", result);
         console.log("Full result object:", JSON.stringify(result, null, 2));
         console.log("Result keys:", Object.keys(result || {}));
-        
+
         // Store the full result
         setVerificationResult(result);
-        
+
         // Check for proof in various possible locations
         let foundProof = null;
-        
+
         if (result?.proof) {
             console.log("✓ Proof found in result.proof:", result.proof);
             foundProof = result.proof;
@@ -662,7 +670,7 @@ export default function InitializePage() {
         } else {
             console.log("⚠ No proof found in result object");
         }
-        
+
         if (foundProof) {
             const proofStr = typeof foundProof === 'string' ? foundProof : JSON.stringify(foundProof);
             setVerificationProof(proofStr);
@@ -672,14 +680,14 @@ export default function InitializePage() {
             }
             console.log("✓ Verification proof stored:", proofStr);
         }
-        
+
         if (result?.discloseOutput) {
             console.log("Disclose output:", result.discloseOutput);
         }
         if (result?.userIdentifier) {
             console.log("User identifier:", result.userIdentifier);
         }
-        
+
         setVerificationStatus('success');
         toast('Identity verification successful!', 'success');
         setCurrentStep(2);
@@ -759,8 +767,8 @@ export default function InitializePage() {
                                 <div className="p-4 border border-[#333333] bg-white rounded-lg">
                                     <SelfQRcodeWrapper
                                         selfApp={selfApp}
-                                        onSuccess={handleSuccessfulVerification}
-                                        onError={handleVerificationError}
+                                        onSuccess={handleSuccessfulVerification as any}
+                                        onError={handleVerificationError as any}
                                     />
                                 </div>
                                 <p className="mt-4 text-center text-[#888888] font-mono text-xs sm:text-sm uppercase">
@@ -793,7 +801,7 @@ export default function InitializePage() {
                             <p className="text-[#888888] font-mono text-sm uppercase">
                                 {countdown > 0 ? 'Preparing initialization...' : 'Ready to initialize!'}
                             </p>
-                            
+
                             {/* Display verification proof if available */}
                             {verificationProof && (
                                 <Card className="mt-4 border-[rgba(182,255,62,0.5)] bg-[#0a0a0a] w-full">
@@ -806,14 +814,14 @@ export default function InitializePage() {
                                         <div className="space-y-2">
                                             <p className="text-xs font-mono text-[#888888] uppercase">Proof:</p>
                                             <p className="text-xs font-mono text-white break-all">
-                                                {typeof verificationProof === 'string' 
-                                                    ? verificationProof.slice(0, 100) + '...' 
+                                                {typeof verificationProof === 'string'
+                                                    ? verificationProof.slice(0, 100) + '...'
                                                     : JSON.stringify(verificationProof).slice(0, 100) + '...'}
                                             </p>
                                             <Button
                                                 onClick={() => {
-                                                    const proofStr = typeof verificationProof === 'string' 
-                                                        ? verificationProof 
+                                                    const proofStr = typeof verificationProof === 'string'
+                                                        ? verificationProof
                                                         : JSON.stringify(verificationProof);
                                                     navigator.clipboard.writeText(proofStr);
                                                     toast('Proof copied to clipboard!', 'success');
@@ -828,7 +836,7 @@ export default function InitializePage() {
                                     </CardContent>
                                 </Card>
                             )}
-                            
+
                             {/* Display full result for debugging */}
                             {verificationResult && (
                                 <Card className="mt-4 border-[#333333] bg-[#0a0a0a] w-full">
@@ -850,232 +858,270 @@ export default function InitializePage() {
             );
         }
 
-        // Step 3: Initialize (existing initialization flow)
+        // Step 3: ENS Subdomain Registration (skippable)
+        if (currentStep === 3) {
+            return (
+                <Card className="border-[#333333] bg-[#0a0a0a]">
+                    <CardHeader>
+                        <CardTitle className="text-xl font-mono font-bold uppercase text-white">
+                            Step 3: Register ENS Subdomain (Optional)
+                        </CardTitle>
+                        <CardDescription className="text-[#888888] font-mono text-sm mt-2">
+                            Register a human-readable ENS subdomain for your zkAddress. This step is optional and can be skipped.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <div className="space-y-4">
+                            <p className="text-sm font-mono text-[#888888]">
+                                You can register an ENS subdomain now, or do it later from the Naming page.
+                            </p>
+                            <div className="flex gap-3">
+                                <Button
+                                    onClick={() => router.push('/naming')}
+                                    className="flex-1 bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase"
+                                >
+                                    Go to Naming Page
+                                </Button>
+                                <Button
+                                    onClick={() => setCurrentStep(4)}
+                                    variant="outline"
+                                    className="flex-1 border-[#333333] hover:border-[rgba(182,255,62,1)] hover:text-[rgba(182,255,62,1)] font-mono uppercase"
+                                >
+                                    Skip
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            );
+        }
+
+        // Step 4: Initialize (existing initialization flow)
         return (
             <div className="space-y-3 sm:space-y-4">
                 {/* Sign Message Button - Show if no zkAddress */}
                 {!zkAddress && (
+                    <Button
+                        onClick={handleSign}
+                        disabled={isLoading || isSigning}
+                        className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLoading || isSigning ? 'SIGNING...' : 'SIGN MESSAGE FOR NYDUS NETWORK ACCESS'}
+                    </Button>
+                )}
+
+                {/* Show message if zkAddress exists */}
+                {zkAddress && !userKey && (
+                    <Card className="border-[#333333] bg-[#0a0a0a]">
+                        <CardContent className="pt-6">
+                            <p className="text-sm font-mono text-[#888888] uppercase">
+                                COMPUTING USER KEY FROM EXISTING SIGNATURE...
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Form for Circuit Inputs */}
+                {zkAddress && userKey && (
+                    <Card>
+                        <CardHeader className="border-b border-[#333333] bg-black/50 py-2 px-3 sm:px-4 mb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-1 h-3 bg-[rgba(182,255,62,1)]"></div>
+                                <CardTitle className="text-xs sm:text-sm font-mono uppercase">$ CIRCUIT INPUTS</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3 sm:space-y-4">
+                                <div>
+                                    <label htmlFor="token_address" className="block text-xs sm:text-sm font-mono font-bold text-white mb-1 sm:mb-2 uppercase">
+                                        TOKEN ADDRESS
+                                    </label>
+                                    <Input
+                                        type="text"
+                                        id="token_address"
+                                        value={tokenAddress}
+                                        onChange={(e) => setTokenAddress(e.target.value)}
+                                        placeholder="0x..."
+                                        className="text-xs sm:text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label htmlFor="amount" className="block text-xs sm:text-sm font-mono font-bold text-white mb-1 sm:mb-2 uppercase">
+                                        AMOUNT
+                                    </label>
+                                    <Input
+                                        type="text"
+                                        id="amount"
+                                        value={amount}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            // Allow only numbers and decimal point
+                                            if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                                setAmount(value);
+                                            }
+                                        }}
+                                        placeholder="0.00001"
+                                        className="text-xs sm:text-sm"
+                                    />
+                                </div>
+
                                 <Button
-                                    onClick={handleSign}
-                                    disabled={isLoading || isSigning}
+                                    onClick={proveNydusEntry}
+                                    disabled={isProving || isInitializing || !tokenAddress || !amount}
                                     className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {isLoading || isSigning ? 'SIGNING...' : 'SIGN MESSAGE FOR NYDUS NETWORK ACCESS'}
+                                    {isProving
+                                        ? `GENERATING PROOF... (${currentProvingTime}MS)`
+                                        : isInitializing
+                                            ? 'INITIALIZING BACKEND...'
+                                            : 'GENERATE NYDUS ENTRY PROOF'
+                                    }
                                 </Button>
-                            )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
-                            {/* Show message if zkAddress exists */}
-                            {zkAddress && !userKey && (
-                                <Card className="border-[#333333] bg-[#0a0a0a]">
-                                    <CardContent className="pt-6">
-                                        <p className="text-sm font-mono text-[#888888] uppercase">
-                                            COMPUTING USER KEY FROM EXISTING SIGNATURE...
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            )}
+                {error && (
+                    <Card className="border-[#333333] bg-[#0a0a0a]">
+                        <CardContent className="pt-6">
+                            <p className="text-sm font-mono text-white uppercase">{error}</p>
+                        </CardContent>
+                    </Card>
+                )}
 
-                            {/* Form for Circuit Inputs */}
-                            {zkAddress && userKey && (
-                                <Card>
-                                    <CardHeader className="border-b border-[#333333] bg-black/50 py-2 px-3 sm:px-4 mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-1 h-3 bg-[rgba(182,255,62,1)]"></div>
-                                            <CardTitle className="text-xs sm:text-sm font-mono uppercase">$ CIRCUIT INPUTS</CardTitle>
+                {proofError && (
+                    <Card className="border-[#333333] bg-[#0a0a0a]">
+                        <CardContent className="pt-6">
+                            <p className="text-sm font-mono text-white uppercase">{proofError}</p>
+                        </CardContent>
+                    </Card>
+                )}
+
+
+                {proof && (
+                    <Card>
+                        <CardHeader className="border-b border-[#333333] bg-black/50 py-2 px-3 sm:px-4 mb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-1 h-3 bg-[rgba(182,255,62,1)]"></div>
+                                <CardTitle className="text-xs sm:text-sm font-mono uppercase">$ NYDUS ENTRY PROOF</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-3 sm:p-6">
+                            <div className="space-y-2 sm:space-y-3">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
+                                    <span className="text-xs sm:text-sm font-mono text-[#888888] uppercase">PROOF:</span>
+                                    <div className="flex items-center space-x-2">
+                                        <span className="text-xs sm:text-sm text-white font-mono break-all">
+                                            {proof.slice(0, 12)}...{proof.slice(-6)}
+                                        </span>
+                                        <Button
+                                            onClick={() => navigator.clipboard.writeText(proof)}
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs"
+                                        >
+                                            COPY
+                                        </Button>
+                                    </div>
+                                </div>
+                                {provingTime && (
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
+                                        <span className="text-xs sm:text-sm font-mono text-[#888888] uppercase">PROVING TIME:</span>
+                                        <span className="text-xs sm:text-sm text-white font-mono bg-[#0a0a0a] px-2 py-1 border border-[#333333]">
+                                            {provingTime}MS
+                                        </span>
+                                    </div>
+                                )}
+                                {publicInputs.length > 0 && (
+                                    <div className="mt-2 sm:mt-3">
+                                        <span className="text-xs sm:text-sm font-mono text-[#888888] uppercase">PUBLIC INPUTS:</span>
+                                        <div className="mt-1 text-[10px] sm:text-xs font-mono text-[#888888]">
+                                            {publicInputs.slice(0, 9).length} INPUTS READY
                                         </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-3 sm:space-y-4">
-                                            <div>
-                                                <label htmlFor="token_address" className="block text-xs sm:text-sm font-mono font-bold text-white mb-1 sm:mb-2 uppercase">
-                                                    TOKEN ADDRESS
-                                                </label>
-                                                <Input
-                                                    type="text"
-                                                    id="token_address"
-                                                    value={tokenAddress}
-                                                    onChange={(e) => setTokenAddress(e.target.value)}
-                                                    placeholder="0x..."
-                                                    className="text-xs sm:text-sm"
-                                                />
+                                    </div>
+                                )}
+                                <p className="text-[10px] sm:text-xs font-mono text-white mt-2 uppercase break-words">
+                                    [PROOF GENERATED] DEMONSTRATES YOUR ACCESS TO THE NYDUS NETWORK.
+                                </p>
+
+                                {/* Simulation Status */}
+                                {isSimulating && (
+                                    <Card className="mt-2 sm:mt-3 border-[#333333] bg-[#0a0a0a]">
+                                        <CardContent className="pt-3 sm:pt-4">
+                                            <div className="flex items-center space-x-2">
+                                                <span className="text-white font-mono text-[10px] sm:text-xs">[...]</span>
+                                                <p className="text-xs sm:text-sm font-mono text-white uppercase">SIMULATING...</p>
                                             </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
 
-                                            <div>
-                                                <label htmlFor="amount" className="block text-xs sm:text-sm font-mono font-bold text-white mb-1 sm:mb-2 uppercase">
-                                                    AMOUNT
-                                                </label>
-                                                <Input
-                                                    type="text"
-                                                    id="amount"
-                                                    value={amount}
-                                                    onChange={(e) => {
-                                                        const value = e.target.value;
-                                                        // Allow only numbers and decimal point
-                                                        if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                                            setAmount(value);
-                                                        }
-                                                    }}
-                                                    placeholder="0.00001"
-                                                    className="text-xs sm:text-sm"
-                                                />
+                                {simulationResult && !isSimulating && (
+                                    <Card className="mt-2 sm:mt-3 border-white bg-black">
+                                        <CardContent className="pt-3 sm:pt-4">
+                                            <p className="text-xs sm:text-sm font-mono text-white font-bold uppercase">[SIMULATION SUCCESSFUL]</p>
+                                            {simulationResult.request?.gas && (
+                                                <p className="text-[10px] sm:text-xs font-mono text-[#888888] mt-1 uppercase">
+                                                    GAS: {simulationResult.request.gas.toString()}
+                                                </p>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                {/* Transaction Button */}
+                                <Button
+                                    onClick={handleInitCommit}
+                                    disabled={isPending || isConfirming || isSubmitting || isSimulating || !publicInputs.length}
+                                    className="w-full mt-3 sm:mt-4 text-xs sm:text-sm bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isSimulating
+                                        ? 'SIMULATING...'
+                                        : isPending || isSubmitting
+                                            ? 'PREPARING...'
+                                            : isConfirming
+                                                ? 'CONFIRMING...'
+                                                : 'INITIALIZE ON NYDUS'
+                                    }
+                                </Button>
+
+                                {/* Transaction Status */}
+                                {txHash && (
+                                    <Card className="mt-2 sm:mt-3 border-white bg-black">
+                                        <CardContent className="pt-3 sm:pt-4">
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-0">
+                                                <span className="text-xs sm:text-sm font-mono text-white uppercase">TX HASH:</span>
+                                                <a
+                                                    href={`https://sepolia.basescan.org/tx/${txHash}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs sm:text-sm font-mono text-white hover:text-[#888888] underline break-all"
+                                                >
+                                                    {txHash.slice(0, 12)}...{txHash.slice(-6)}
+                                                </a>
                                             </div>
-
-                                            <Button
-                                                onClick={proveNydusEntry}
-                                                disabled={isProving || isInitializing || !tokenAddress || !amount}
-                                                className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isProving
-                                                    ? `GENERATING PROOF... (${currentProvingTime}MS)`
-                                                    : isInitializing
-                                                        ? 'INITIALIZING BACKEND...'
-                                                        : 'GENERATE NYDUS ENTRY PROOF'
-                                                }
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
-
-                            {error && (
-                                <Card className="border-[#333333] bg-[#0a0a0a]">
-                                    <CardContent className="pt-6">
-                                        <p className="text-sm font-mono text-white uppercase">{error}</p>
-                                    </CardContent>
-                                </Card>
-                            )}
-
-                            {proofError && (
-                                <Card className="border-[#333333] bg-[#0a0a0a]">
-                                    <CardContent className="pt-6">
-                                        <p className="text-sm font-mono text-white uppercase">{proofError}</p>
-                                    </CardContent>
-                                </Card>
-                            )}
-
-
-                            {proof && (
-                                <Card>
-                                    <CardHeader className="border-b border-[#333333] bg-black/50 py-2 px-3 sm:px-4 mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-1 h-3 bg-[rgba(182,255,62,1)]"></div>
-                                            <CardTitle className="text-xs sm:text-sm font-mono uppercase">$ NYDUS ENTRY PROOF</CardTitle>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-3 sm:p-6">
-                                        <div className="space-y-2 sm:space-y-3">
-                                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
-                                                <span className="text-xs sm:text-sm font-mono text-[#888888] uppercase">PROOF:</span>
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-xs sm:text-sm text-white font-mono break-all">
-                                                        {proof.slice(0, 12)}...{proof.slice(-6)}
-                                                    </span>
-                                                    <Button
-                                                        onClick={() => navigator.clipboard.writeText(proof)}
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="text-xs"
-                                                    >
-                                                        COPY
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                            {provingTime && (
-                                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                                                    <span className="text-xs sm:text-sm font-mono text-[#888888] uppercase">PROVING TIME:</span>
-                                                    <span className="text-xs sm:text-sm text-white font-mono bg-[#0a0a0a] px-2 py-1 border border-[#333333]">
-                                                        {provingTime}MS
-                                                    </span>
-                                                </div>
+                                            {isConfirming && (
+                                                <p className="text-[10px] sm:text-xs font-mono text-[#888888] mt-1 uppercase">
+                                                    WAITING FOR CONFIRMATION...
+                                                </p>
                                             )}
-                                            {publicInputs.length > 0 && (
-                                                <div className="mt-2 sm:mt-3">
-                                                    <span className="text-xs sm:text-sm font-mono text-[#888888] uppercase">PUBLIC INPUTS:</span>
-                                                    <div className="mt-1 text-[10px] sm:text-xs font-mono text-[#888888]">
-                                                        {publicInputs.slice(0, 9).length} INPUTS READY
-                                                    </div>
-                                                </div>
+                                            {isConfirmed && (
+                                                <p className="text-[10px] sm:text-xs font-mono text-white font-bold mt-1 uppercase">
+                                                    [CONFIRMED]
+                                                </p>
                                             )}
-                                            <p className="text-[10px] sm:text-xs font-mono text-white mt-2 uppercase break-words">
-                                                [PROOF GENERATED] DEMONSTRATES YOUR ACCESS TO THE NYDUS NETWORK.
-                                            </p>
+                                        </CardContent>
+                                    </Card>
+                                )}
 
-                                            {/* Simulation Status */}
-                                            {isSimulating && (
-                                                <Card className="mt-2 sm:mt-3 border-[#333333] bg-[#0a0a0a]">
-                                                    <CardContent className="pt-3 sm:pt-4">
-                                                        <div className="flex items-center space-x-2">
-                                                            <span className="text-white font-mono text-[10px] sm:text-xs">[...]</span>
-                                                            <p className="text-xs sm:text-sm font-mono text-white uppercase">SIMULATING...</p>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            )}
-
-                                            {simulationResult && !isSimulating && (
-                                                <Card className="mt-2 sm:mt-3 border-white bg-black">
-                                                    <CardContent className="pt-3 sm:pt-4">
-                                                        <p className="text-xs sm:text-sm font-mono text-white font-bold uppercase">[SIMULATION SUCCESSFUL]</p>
-                                                        {simulationResult.request?.gas && (
-                                                            <p className="text-[10px] sm:text-xs font-mono text-[#888888] mt-1 uppercase">
-                                                                GAS: {simulationResult.request.gas.toString()}
-                                                            </p>
-                                                        )}
-                                                    </CardContent>
-                                                </Card>
-                                            )}
-
-                                            {/* Transaction Button */}
-                                            <Button
-                                                onClick={handleInitCommit}
-                                                disabled={isPending || isConfirming || isSubmitting || isSimulating || !publicInputs.length}
-                                                className="w-full mt-3 sm:mt-4 text-xs sm:text-sm bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isSimulating
-                                                    ? 'SIMULATING...'
-                                                    : isPending || isSubmitting
-                                                        ? 'PREPARING...'
-                                                        : isConfirming
-                                                            ? 'CONFIRMING...'
-                                                            : 'INITIALIZE ON NYDUS'
-                                                }
-                                            </Button>
-
-                                            {/* Transaction Status */}
-                                            {txHash && (
-                                                <Card className="mt-2 sm:mt-3 border-white bg-black">
-                                                    <CardContent className="pt-3 sm:pt-4">
-                                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-0">
-                                                            <span className="text-xs sm:text-sm font-mono text-white uppercase">TX HASH:</span>
-                                                            <a
-                                                                href={`https://sepolia.basescan.org/tx/${txHash}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-xs sm:text-sm font-mono text-white hover:text-[#888888] underline break-all"
-                                                            >
-                                                                {txHash.slice(0, 12)}...{txHash.slice(-6)}
-                                                            </a>
-                                                        </div>
-                                                        {isConfirming && (
-                                                            <p className="text-[10px] sm:text-xs font-mono text-[#888888] mt-1 uppercase">
-                                                                WAITING FOR CONFIRMATION...
-                                                            </p>
-                                                        )}
-                                                        {isConfirmed && (
-                                                            <p className="text-[10px] sm:text-xs font-mono text-white font-bold mt-1 uppercase">
-                                                                [CONFIRMED]
-                                                            </p>
-                                                        )}
-                                                    </CardContent>
-                                                </Card>
-                                            )}
-
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
-                        </div>
-            );
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -1090,7 +1136,8 @@ export default function InitializePage() {
                         <CardDescription className="text-center text-xs sm:text-sm font-mono">
                             {currentStep === 1 && 'STEP 1: VERIFY YOUR IDENTITY'}
                             {currentStep === 2 && 'STEP 2: WAITING FOR ON-CHAIN CONFIRMATION'}
-                            {currentStep === 3 && 'STEP 3: SET UP YOUR PRIVATE ACCOUNT'}
+                            {currentStep === 3 && 'STEP 3: REGISTER ENS SUBDOMAIN (OPTIONAL)'}
+                            {currentStep === 4 && 'STEP 4: SET UP YOUR PRIVATE ACCOUNT'}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6">

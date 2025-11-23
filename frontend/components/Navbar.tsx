@@ -26,20 +26,55 @@ const allNavigation = [
 
 export default function Navbar() {
     const pathname = usePathname();
-    const { setZkAddress, clearAccount } = useAccountContext();
+    const { setZkAddress, clearAccount, account } = useAccountContext();
     const zkAddress = useZkAddress();
     const { address, isConnected } = useWagmiAccount();
     const { signMessageAsync, isPending: isSigning } = useSignMessage();
     const [isComputing, setIsComputing] = useState(false);
     const [bufferReady, setBufferReady] = useState(false);
     const { openModal } = useAccountModal();
-    const { currentNonce, setCurrentNonce, setBalanceEntries, setUserKey, isSyncing, setPersonalCommitmentState, getPersonalCommitmentState, clearAccountState } = useAccountState();
+    const { currentNonce, setCurrentNonce, setBalanceEntries, setUserKey, isSyncing, clearAccountState } = useAccountState();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [copied, setCopied] = useState(false);
     const [zkAddressModalOpen, setZkAddressModalOpen] = useState(false);
+    const [isLoadingNonce, setIsLoadingNonce] = useState(true);
 
-    // Filter navigation based on nonce
+    // Load account data from IndexedDB on mount if zkAddress exists
+    React.useEffect(() => {
+        const loadAccountDataIfNeeded = async () => {
+            if (!zkAddress) {
+                setIsLoadingNonce(false);
+                return;
+            }
+
+            // Only load if nonce hasn't been set yet (still null)
+            if (currentNonce === null) {
+                try {
+                    console.log('[Navbar] Loading account data from IndexedDB for existing zkAddress...');
+                    await loadAccountDataOnSign(zkAddress, {
+                        setCurrentNonce,
+                        setBalanceEntries,
+                        setUserKey,
+                    }, account?.signature);
+                    console.log('[Navbar] Account data loaded');
+                } catch (error) {
+                    console.error('[Navbar] Error loading account data:', error);
+                }
+            }
+            setIsLoadingNonce(false);
+        };
+
+        loadAccountDataIfNeeded();
+    }, [zkAddress, currentNonce, setCurrentNonce, setBalanceEntries, setUserKey]);
+
+    // Filter navigation based on nonce (only after we've checked)
     const navigation = React.useMemo(() => {
+        // Wait until we've finished loading the nonce
+        if (isLoadingNonce) {
+            // Show all navigation while loading to avoid flickering
+            return allNavigation;
+        }
+
         // More robust check: treat null, undefined, or 0 as uninitialized
         const isUninitialized = currentNonce === null || 
                                 currentNonce === undefined || 
@@ -51,7 +86,7 @@ export default function Navbar() {
         } else {
             return allNavigation.filter(item => item.name !== 'Initialize');
         }
-    }, [currentNonce]);
+    }, [currentNonce, isLoadingNonce]);
 
     // Pre-initialize Buffer when component mounts
     React.useEffect(() => {
@@ -149,9 +184,9 @@ export default function Navbar() {
                             <Image
                                 src="/nydus_logo.png"
                                 alt="Nydus Logo"
-                                width={120}
-                                height={32}
-                                className="h-8 w-auto"
+                                width={156}
+                                height={42}
+                                className="h-[42px] w-auto"
                                 priority
                             />
                         </Link>

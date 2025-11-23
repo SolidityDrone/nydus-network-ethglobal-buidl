@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Image from 'next/image';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { showToast } from '@/components/Toast';
 import { useAccount, useSignMessage } from 'wagmi';
 import { useZkAddress } from '@/context/AccountProvider';
+import { getUniversalLink } from "@selfxyz/core";
+import { SelfQRcodeWrapper, SelfAppBuilder, countries, type SelfApp } from "@selfxyz/qrcode";
 import {
   registerSubdomain,
   getAllSubdomains,
@@ -35,6 +38,10 @@ export default function NamingPage() {
   // Verification state (optional)
   const [includeVerification, setIncludeVerification] = useState(false);
   const [verificationProof, setVerificationProof] = useState<string | null>(null);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [selfApp, setSelfApp] = useState<SelfApp | null>(null);
+  const [universalLink, setUniversalLink] = useState<string>('');
+  const [, setVerificationStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
 
   // Load all subdomains when address changes
   useEffect(() => {
@@ -52,6 +59,52 @@ export default function NamingPage() {
       }
     }
   }, []);
+
+  // Initialize Self Protocol App when modal opens
+  useEffect(() => {
+    if (!showVerificationModal || !address) return;
+
+    const initializeSelfApp = async () => {
+      try {
+        const endpoint = process.env.NEXT_PUBLIC_SELF_ENDPOINT;
+        const scope = process.env.NEXT_PUBLIC_SELF_SCOPE_SEED;
+        const appName = process.env.NEXT_PUBLIC_SELF_APP_NAME;
+
+        if (!endpoint || !scope || !appName) {
+          showToast('Self Protocol configuration missing', 'error');
+          return;
+        }
+
+        const app = new SelfAppBuilder({
+          version: 2,
+          appName: appName,
+          scope: scope,
+          endpoint: endpoint.toLowerCase(),
+          logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png",
+          userId: address,
+          endpointType: "staging_celo",
+          userIdType: "hex",
+          userDefinedData: "Nydus ENS Verification",
+          deeplinkCallback: window.location.href,
+          disclosures: {
+            minimumAge: 18,
+            excludedCountries: [countries.UNITED_STATES],
+            ofac: true,
+            nationality: true,
+            gender: true,
+          }
+        }).build();
+
+        setSelfApp(app);
+        setUniversalLink(getUniversalLink(app));
+      } catch (error) {
+        console.error('Failed to initialize Self app:', error);
+        showToast('Failed to initialize Self Protocol', 'error');
+      }
+    };
+
+    initializeSelfApp();
+  }, [showVerificationModal, address]);
 
   // Check availability when subname changes (only for registration)
   useEffect(() => {
@@ -252,6 +305,26 @@ export default function NamingPage() {
     setShowUpdateForm(false);
   };
 
+  const handleSelfVerificationSuccess = (result: any) => {
+    console.log('Self verification successful:', result);
+    if (result?.proof) {
+      const proofStr = typeof result.proof === 'string' 
+        ? result.proof 
+        : JSON.stringify(result.proof);
+      setVerificationProof(proofStr);
+      localStorage.setItem('selfVerificationProof', proofStr);
+      setVerificationStatus('success');
+      setShowVerificationModal(false);
+      showToast('Verification successful!', 'success');
+    }
+  };
+
+  const handleSelfVerificationError = (error: any) => {
+    console.error('Self verification error:', error);
+    setVerificationStatus('error');
+    showToast('Verification failed', 'error');
+  };
+
   const getEnsDomain = () => {
     return process.env.NEXT_PUBLIC_ENS_DOMAIN || 'nydusns.eth';
   };
@@ -393,21 +466,56 @@ export default function NamingPage() {
                       </span>
                     </label>
                     {includeVerification && (
-                      <p className="text-xs font-mono text-[#666666] mt-2">
-                        {verificationProof 
-                          ? '✓ Verification proof available' 
-                          : '⚠ No verification proof found. Complete verification first.'}
-                      </p>
+                      <div className="mt-2 space-y-2">
+                        <p className="text-xs font-mono text-[#666666]">
+                          {verificationProof 
+                            ? '✓ Verification proof available' 
+                            : '⚠ No verification proof found. Complete verification first.'}
+                        </p>
+                        {!verificationProof && (
+                          <Button
+                            type="button"
+                            onClick={() => setShowVerificationModal(true)}
+                            size="sm"
+                            variant="outline"
+                            className="w-full text-xs font-mono flex items-center justify-center gap-2"
+                          >
+                            <Image
+                              src="/SelfLogo.png"
+                              alt="Self"
+                              width={16}
+                              height={16}
+                              className="w-4 h-4"
+                            />
+                            Verification with Self
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
 
                 <Button
                   type="submit"
-                  disabled={isLoading || !subname.trim() || isAvailable === false || !address || !zkAddress}
+                  disabled={
+                    isLoading || 
+                    !subname.trim() || 
+                    isAvailable === false || 
+                    !address || 
+                    !zkAddress ||
+                    (includeVerification && !verificationProof)
+                  }
                   className="w-full font-mono"
                 >
-                  {isLoading ? 'REGISTERING...' : !address ? 'CONNECT WALLET FIRST' : !zkAddress ? 'SIGN FOR ZK ADDRESS' : 'REGISTER SUBDOMAIN'}
+                  {isLoading 
+                    ? 'REGISTERING...' 
+                    : !address 
+                      ? 'CONNECT WALLET FIRST' 
+                      : !zkAddress 
+                        ? 'SIGN FOR ZK ADDRESS'
+                        : includeVerification && !verificationProof
+                          ? 'COMPLETE VERIFICATION FIRST'
+                          : 'REGISTER SUBDOMAIN'}
                 </Button>
               </form>
             </CardContent>
@@ -624,6 +732,69 @@ export default function NamingPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Self Protocol Verification Modal */}
+      {showVerificationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <Card className="border-[#333333] bg-[#0a0a0a] max-w-md w-full mx-4">
+            <CardHeader>
+              <CardTitle className="text-xl font-mono font-bold uppercase text-white">
+                Verify with Self Protocol
+              </CardTitle>
+              <CardDescription className="text-[#888888] font-mono text-sm mt-2">
+                Complete identity verification using Self Protocol. Use the button below (mobile) or scan the QR code (desktop).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {selfApp ? (
+                <div className="space-y-4">
+                  {/* Mobile Deep Link Button */}
+                  <div className="md:hidden">
+                    <Button
+                      onClick={() => window.open(universalLink, '_blank')}
+                      className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase"
+                    >
+                      <Image
+                        src="/SelfLogo.png"
+                        alt="Self"
+                        width={20}
+                        height={20}
+                        className="w-5 h-5 mr-2"
+                      />
+                      Open Self App
+                    </Button>
+                  </div>
+
+                  {/* Desktop QR Code */}
+                  <div className="hidden md:block">
+                    <SelfQRcodeWrapper
+                      selfApp={selfApp}
+                      onSuccess={handleSelfVerificationSuccess as any}
+                      onError={handleSelfVerificationError as any}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setShowVerificationModal(false)}
+                      variant="outline"
+                      className="flex-1 border-[#333333] hover:border-[rgba(182,255,62,1)] hover:text-[rgba(182,255,62,1)] font-mono uppercase"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm font-mono text-[#888888]">
+                    Initializing Self Protocol...
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

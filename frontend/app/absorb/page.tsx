@@ -134,14 +134,22 @@ export default function AbsorbPage() {
     React.useEffect(() => {
         if (proofMode === 'remote') {
             setIsCheckingServer(true);
-            checkProofServerStatus().then((available) => {
-                setServerAvailable(available);
-                setIsCheckingServer(false);
-                if (!available) {
+            checkProofServerStatus()
+                .then((available) => {
+                    setServerAvailable(available);
+                    setIsCheckingServer(false);
+                    if (!available) {
+                        toast('Proof server unavailable. Switching to local mode.', 'error');
+                        setProofMode('local');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error checking proof server status:', error);
+                    setServerAvailable(false);
+                    setIsCheckingServer(false);
                     toast('Proof server unavailable. Switching to local mode.', 'error');
                     setProofMode('local');
-                }
-            });
+                });
         }
     }, [proofMode, toast]);
 
@@ -1565,37 +1573,37 @@ export default function AbsorbPage() {
             } else {
                 // Local proof generation
                 console.log('💻 Generating proof locally...');
-                await initializeBackend();
+            await initializeBackend();
 
-                if (!backendRef.current || !noirRef.current) {
-                    throw new Error('Failed to initialize backend');
-                }
+            if (!backendRef.current || !noirRef.current) {
+                throw new Error('Failed to initialize backend');
+            }
 
-                //@ts-ignore
-                const { witness } = await noirRef.current!.execute(inputs, { keccak: true });
-                console.log('Circuit execution result:', witness);
+            //@ts-ignore
+            const { witness } = await noirRef.current!.execute(inputs, { keccak: true });
+            console.log('Circuit execution result:', witness);
 
-                //@ts-ignore
-                const proofResult = await backendRef.current!.generateProof(witness, { keccak: true });
-                console.log('Generated proof:', proofResult);
+            //@ts-ignore
+            const proofResult = await backendRef.current!.generateProof(witness, { keccak: true });
+            console.log('Generated proof:', proofResult);
                 proofHex = Buffer.from(proofResult.proof).toString('hex');
 
                 // Extract public inputs from proof result and slice to 28 elements
                 const publicInputsArray = (proofResult.publicInputs || []).slice(0, 28);
                 publicInputsHex = publicInputsArray.map((input: any) => {
-                    if (typeof input === 'string' && input.startsWith('0x')) {
-                        return input;
-                    }
-                    if (typeof input === 'bigint') {
-                        return `0x${input.toString(16).padStart(64, '0')}`;
-                    }
-                    const hex = BigInt(input).toString(16);
-                    return `0x${hex.padStart(64, '0')}`;
-                });
+                if (typeof input === 'string' && input.startsWith('0x')) {
+                    return input;
+                }
+                if (typeof input === 'bigint') {
+                    return `0x${input.toString(16).padStart(64, '0')}`;
+                }
+                const hex = BigInt(input).toString(16);
+                return `0x${hex.padStart(64, '0')}`;
+            });
 
-                const endTime = performance.now();
-                const provingTimeMs = Math.round(endTime - startTime);
-                setProvingTime(provingTimeMs);
+            const endTime = performance.now();
+            const provingTimeMs = Math.round(endTime - startTime);
+            setProvingTime(provingTimeMs);
                 console.log('✅ Local proof generated successfully');
                 console.log(`Total proving time: ${provingTimeMs}ms`);
             }
@@ -1605,7 +1613,9 @@ export default function AbsorbPage() {
 
             console.log('Proof generated successfully:', proofHex);
             console.log('Public inputs (sliced to 20):', publicInputsHex);
-            console.log(`Total proving time: ${provingTimeMs}ms`);
+            if (provingTime !== null) {
+                console.log(`Total proving time: ${provingTime}ms`);
+            }
 
         } catch (error) {
             console.error('Error generating proof:', error);

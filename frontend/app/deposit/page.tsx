@@ -11,29 +11,28 @@ import { defineChain } from 'viem';
 
 // Celo Sepolia chain definition
 const celoSepolia = defineChain({
-  id: 11142220,
-  name: 'Celo Sepolia',
-  nativeCurrency: {
-    decimals: 18,
-    name: 'CELO',
-    symbol: 'CELO',
-  },
-  rpcUrls: {
-    default: {
-      http: [process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'],
+    id: 11142220,
+    name: 'Celo Sepolia',
+    nativeCurrency: {
+        decimals: 18,
+        name: 'CELO',
+        symbol: 'CELO',
     },
-  },
-  blockExplorers: {
-    default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
-  },
+    rpcUrls: {
+        default: {
+            http: [process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'],
+        },
+    },
+    blockExplorers: {
+        default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
+    },
 });
 import { Noir } from '@noir-lang/noir_js';
 import { CachedUltraHonkBackend } from '@/lib/cached-ultra-honk-backend';
 import circuit from '@/lib/circuits/nydus_deposit.json';
 import { computeZkAddress, NYDUS_MESSAGE } from '@/lib/zk-address';
 import { NydusAddress, NydusAbi } from '@/lib/abi/NydusConst';
-import { poseidonCtrDecrypt } from '@/lib/poseidon-ctr-encryption';
-import { pedersenCommitmentPositive, grumpkinSubtract } from '@/lib/pedersen-commitments';
+import { pedersenCommitmentPositive } from '@/lib/pedersen-commitments';
 import { loadAccountDataOnSign } from '@/lib/loadAccountDataOnSign';
 import { useNonceDiscovery } from '@/hooks/useNonceDiscovery';
 import { saveAccountData, loadAccountData } from '@/lib/indexeddb';
@@ -44,7 +43,7 @@ import TransactionModal from '@/components/TransactionModal';
 import SyncingModal from '@/components/SyncingModal';
 import { useToast } from '@/components/Toast';
 import TokenSelector from '@/components/TokenSelector';
-import { generateProofRemote, checkProofServerStatus } from '@/lib/proof-server';
+import { generateProofRemote } from '@/lib/proof-server';
 
 export default function DepositPage() {
     const { toast } = useToast();
@@ -63,7 +62,7 @@ export default function DepositPage() {
         setPersonalCommitmentState,
         isSyncing
     } = accountState;
-    
+
     // Redirect to initialize if nonce is 0 or null
     React.useEffect(() => {
         if (currentNonce === null || currentNonce === BigInt(0)) {
@@ -78,7 +77,7 @@ export default function DepositPage() {
     const { computeCurrentNonce, reconstructPersonalCommitmentState } = useNonceDiscovery();
     const { signMessageAsync, isPending: isSigning } = useSignMessage();
     const { address } = useWagmiAccount();
-    
+
     // Redirect to initialize if nonce is 0 or null
     React.useEffect(() => {
         if (currentNonce === null || currentNonce === BigInt(0)) {
@@ -104,17 +103,17 @@ export default function DepositPage() {
     const [isCheckingServer, setIsCheckingServer] = useState(false);
     const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
     const [proofError, setProofError] = useState<string | null>(null);
-    const [provingTime, setProvingTime] = useState<number | null>(null);
+    const [, setProvingTime] = useState<number | null>(null);
     const [currentProvingTime, setCurrentProvingTime] = useState<number>(0);
     const [isInitializing, setIsInitializing] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
-    const [initializationTime, setInitializationTime] = useState<number | null>(null);
+    const [_initializationTime, setInitializationTime] = useState<number | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSimulating, setIsSimulating] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
     const [hasTransactionBeenSent, setHasTransactionBeenSent] = useState(false);
     const [txError, setTxError] = useState<string | null>(null);
-    const [simulationResult, setSimulationResult] = useState<any>(null);
+    const [, setSimulationResult] = useState<any>(null);
     const [isCalculatingInputs, setIsCalculatingInputs] = useState(false);
     const [showTransactionModal, setShowTransactionModal] = useState(false);
 
@@ -589,7 +588,7 @@ export default function DepositPage() {
 
             // Declare variables for entry circuit reconstruction (for comparison)
             let entryCTot: { x: bigint; y: bigint } | undefined;
-            let entryMainCommitment: { x: bigint; y: bigint } | undefined;
+            let _entryMainCommitment: { x: bigint; y: bigint } | undefined;
 
             if (previousNonce === BigInt(0)) {
                 // First deposit after entry: need to reconstruct entry circuit's c_tot
@@ -1258,17 +1257,17 @@ export default function DepositPage() {
                 const publicInputsArray = (proofResult.publicInputs || []).slice(0, 16);
                 // Convert public inputs to hex strings (bytes32 format)
                 publicInputsHex = publicInputsArray.map((input: any) => {
-                // Handle different input types
-                if (typeof input === 'string' && input.startsWith('0x')) {
-                    return input;
-                }
-                if (typeof input === 'bigint') {
-                    return `0x${input.toString(16).padStart(64, '0')}`;
-                }
-                // Convert to hex string
-                const hex = BigInt(input).toString(16);
-                return `0x${hex.padStart(64, '0')}`;
-            });
+                    // Handle different input types
+                    if (typeof input === 'string' && input.startsWith('0x')) {
+                        return input;
+                    }
+                    if (typeof input === 'bigint') {
+                        return `0x${input.toString(16).padStart(64, '0')}`;
+                    }
+                    // Convert to hex string
+                    const hex = BigInt(input).toString(16);
+                    return `0x${hex.padStart(64, '0')}`;
+                });
 
                 const endTime = performance.now();
                 const provingTimeMs = Math.round(endTime - startTime);
@@ -1813,11 +1812,10 @@ export default function DepositPage() {
                                                                     onClick={() => setProofMode('local')}
                                                                     variant={proofMode === 'local' ? 'default' : 'outline'}
                                                                     size="sm"
-                                                                    className={`text-xs h-7 px-3 font-mono ${
-                                                                        proofMode === 'local'
-                                                                            ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
-                                                                            : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
-                                                                    }`}
+                                                                    className={`text-xs h-7 px-3 font-mono ${proofMode === 'local'
+                                                                        ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
+                                                                        : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
+                                                                        }`}
                                                                 >
                                                                     LOCAL
                                                                 </Button>
@@ -1827,11 +1825,10 @@ export default function DepositPage() {
                                                                     variant={proofMode === 'remote' ? 'default' : 'outline'}
                                                                     size="sm"
                                                                     disabled={isCheckingServer || serverAvailable === false}
-                                                                    className={`text-xs h-7 px-3 font-mono ${
-                                                                        proofMode === 'remote'
-                                                                            ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
-                                                                            : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
-                                                                    }`}
+                                                                    className={`text-xs h-7 px-3 font-mono ${proofMode === 'remote'
+                                                                        ? 'bg-[rgba(182,255,62,1)] text-black hover:bg-[rgba(182,255,62,0.8)]'
+                                                                        : 'border-[#333333] hover:border-[rgba(182,255,62,1)]'
+                                                                        }`}
                                                                 >
                                                                     {isCheckingServer ? 'CHECKING...' : 'REMOTE'}
                                                                 </Button>

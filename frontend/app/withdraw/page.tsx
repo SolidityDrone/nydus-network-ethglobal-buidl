@@ -71,20 +71,6 @@ export default function WithdrawPage() {
         }
     }, [currentNonce]);
 
-    // Check proof server status when switching to remote mode
-    React.useEffect(() => {
-        if (proofMode === 'remote') {
-            setIsCheckingServer(true);
-            checkProofServerStatus().then((available) => {
-                setServerAvailable(available);
-                setIsCheckingServer(false);
-                if (!available) {
-                    toast('Proof server unavailable. Switching to local mode.', 'error');
-                    setProofMode('local');
-                }
-            });
-        }
-    }, [proofMode, toast]);
     const { signMessageAsync, isPending: isSigning } = useSignMessage();
     const { address } = useWagmiAccount();
     const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
@@ -124,6 +110,29 @@ export default function WithdrawPage() {
     const [proofMode, setProofMode] = useState<'local' | 'remote'>('local');
     const [isCheckingServer, setIsCheckingServer] = useState(false);
     const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
+
+    // Check proof server status when switching to remote mode
+    React.useEffect(() => {
+        if (proofMode === 'remote') {
+            setIsCheckingServer(true);
+            checkProofServerStatus()
+                .then((available) => {
+                    setServerAvailable(available);
+                    setIsCheckingServer(false);
+                    if (!available) {
+                        toast('Proof server unavailable. Switching to local mode.', 'error');
+                        setProofMode('local');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error checking proof server status:', error);
+                    setServerAvailable(false);
+                    setIsCheckingServer(false);
+                    toast('Proof server unavailable. Switching to local mode.', 'error');
+                    setProofMode('local');
+                });
+        }
+    }, [proofMode, toast]);
 
     const backendRef = useRef<CachedUltraHonkBackend | null>(null);
     const noirRef = useRef<Noir | null>(null);
@@ -1064,19 +1073,19 @@ export default function WithdrawPage() {
             } else {
                 // Local proof generation
                 console.log('💻 Generating proof locally...');
-                await initializeBackend();
+            await initializeBackend();
 
-                if (!backendRef.current || !noirRef.current) {
-                    throw new Error('Failed to initialize backend');
-                }
+            if (!backendRef.current || !noirRef.current) {
+                throw new Error('Failed to initialize backend');
+            }
 
-                //@ts-ignore
-                const { witness } = await noirRef.current!.execute(inputs, { keccak: true });
-                console.log('Circuit execution result:', witness);
+            //@ts-ignore
+            const { witness } = await noirRef.current!.execute(inputs, { keccak: true });
+            console.log('Circuit execution result:', witness);
 
-                //@ts-ignore
-                const proofResult = await backendRef.current!.generateProof(witness, { keccak: true });
-                console.log('Generated proof:', proofResult);
+            //@ts-ignore
+            const proofResult = await backendRef.current!.generateProof(witness, { keccak: true });
+            console.log('Generated proof:', proofResult);
                 proofHex = Buffer.from(proofResult.proof).toString('hex');
 
                 // Extract public inputs from proof result and slice to 28 elements
@@ -1092,9 +1101,9 @@ export default function WithdrawPage() {
                 return `0x${hex.padStart(64, '0')}`;
             });
 
-                const endTime = performance.now();
-                const provingTimeMs = Math.round(endTime - startTime);
-                setProvingTime(provingTimeMs);
+            const endTime = performance.now();
+            const provingTimeMs = Math.round(endTime - startTime);
+            setProvingTime(provingTimeMs);
                 console.log('✅ Local proof generated successfully');
                 console.log(`Total proving time: ${provingTimeMs}ms`);
             }

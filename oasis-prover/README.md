@@ -1,6 +1,20 @@
-# Oasis Middleman
+# Oasis Prover
 
-Backend service for Oasis TEE TDX integration.
+Backend service for Oasis TEE TDX integration that provides server-side zero-knowledge proof generation for Nydus circuits.
+
+## Why Server-Side Proof Generation?
+
+Zero-knowledge proof generation is computationally intensive, especially for complex circuits like send/absorb operations (~50k gates, ~1k ACIR opcodes). On low-end mobile devices, these proofs can take 30+ seconds to generate client-side, making the app unusable. By offloading proof generation to a powerful Oasis TEE TDX server, proving time is reduced to just a few seconds, enabling smooth UX on any device.
+
+## How It Works
+
+The prover uses Aztec's UltraHonk backend (`@aztec/bb.js`) and Noir.js to execute circuits and generate proofs server-side. Circuits are preloaded on startup and cached for optimal performance. The service runs inside an Oasis TEE (Trusted Execution Environment) with TDX (Trust Domain Extensions), ensuring proofs are generated securely without exposing sensitive circuit inputs.
+
+## Performance
+
+- **Low-end mobile devices**: ~30 seconds for send/absorb circuits (50k gates, 1k ACIR opcodes)
+- **Oasis TEE TDX server**: Few seconds for the same circuits
+- **Improvement**: ~10x faster, enabling real-time transactions on any device
 
 ## Development
 
@@ -10,6 +24,10 @@ pnpm install
 
 # Run in development mode
 pnpm run dev
+# Starts the server on port 3000 (or PORT env var)
+# Exposes endpoints:
+#   GET  /api/proof/status - Check server status
+#   POST /api/proof/generate - Generate proof (body: { circuitType, inputs })
 
 # Build
 pnpm run build

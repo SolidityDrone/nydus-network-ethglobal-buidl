@@ -217,14 +217,22 @@ export default function SendPage() {
     React.useEffect(() => {
         if (proofMode === 'remote') {
             setIsCheckingServer(true);
-            checkProofServerStatus().then((available) => {
-                setServerAvailable(available);
-                setIsCheckingServer(false);
-                if (!available) {
+            checkProofServerStatus()
+                .then((available) => {
+                    setServerAvailable(available);
+                    setIsCheckingServer(false);
+                    if (!available) {
+                        toast('Proof server unavailable. Switching to local mode.', 'error');
+                        setProofMode('local');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error checking proof server status:', error);
+                    setServerAvailable(false);
+                    setIsCheckingServer(false);
                     toast('Proof server unavailable. Switching to local mode.', 'error');
                     setProofMode('local');
-                }
-            });
+                });
         }
     }, [proofMode, toast]);
     const [localUserKey, setLocalUserKey] = useState<string>('');
