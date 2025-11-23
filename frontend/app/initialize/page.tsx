@@ -50,13 +50,13 @@ export default function InitializePage() {
     const { setZkAddress, account } = useAccountContext();
     const { address } = useWagmiAccount();
     const { signMessageAsync, isPending: isSigning } = useSignMessage();
-    const { currentNonce, setCurrentNonce, setBalanceEntries, setUserKey: setContextUserKey } = useAccountState();
+    const { currentNonce, setCurrentNonce, setBalanceEntries, setUserKey: setContextUserKey, setPersonalCommitmentState, getPersonalCommitmentState } = useAccountState();
 
     // 4-step flow state
     const [currentStep, setCurrentStep] = useState<Step>(1);
     const [selfApp, setSelfApp] = useState<SelfApp | null>(null);
     const [universalLink, setUniversalLink] = useState<string>('');
-    const [, setVerificationStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
+    const [verificationStatus, setVerificationStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
     const [verificationResult, setVerificationResult] = useState<any>(null);
     const [verificationProof, setVerificationProof] = useState<string | null>(null);
     const [countdown, setCountdown] = useState<number>(5);
@@ -73,8 +73,8 @@ export default function InitializePage() {
     const [currentProvingTime, setCurrentProvingTime] = useState<number>(0);
     const [isInitializing, setIsInitializing] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
-    const [_initializationTime, setInitializationTime] = useState<number | null>(null);
-    const [_cacheInfo, setCacheInfo] = useState<{ size: number; entries?: string[] } | null>(null);
+    const [initializationTime, setInitializationTime] = useState<number | null>(null);
+    const [cacheInfo, setCacheInfo] = useState<{ size: number; entries?: string[] } | null>(null);
     const [publicInputs, setPublicInputs] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSimulating, setIsSimulating] = useState(false);
@@ -114,6 +114,23 @@ export default function InitializePage() {
                     throw new Error('Self Protocol environment variables not configured');
                 }
 
+                // Determine the appropriate deeplink callback
+                // For MetaMask mobile browser, use origin + pathname to stay in-app
+                let deeplinkCallback = '';
+                if (typeof window !== 'undefined') {
+                    // Check if we're in MetaMask mobile browser
+                    const isMetaMaskMobile = /MetaMaskMobile/i.test(navigator.userAgent) ||
+                        (typeof window !== 'undefined' && (window as any).ethereum && (window as any).ethereum.isMetaMask);
+
+                    if (isMetaMaskMobile) {
+                        // Use origin + pathname to stay within MetaMask browser
+                        deeplinkCallback = window.location.origin + window.location.pathname;
+                    } else {
+                        // For other browsers, use full href
+                        deeplinkCallback = window.location.href;
+                    }
+                }
+
                 const app = new SelfAppBuilder({
                     version: 2,
                     appName: appName || "Nydus",
@@ -124,7 +141,7 @@ export default function InitializePage() {
                     endpointType: "staging_celo",
                     userIdType: "hex",
                     userDefinedData: `Wallet: ${address}`,
-                    deeplinkCallback: typeof window !== 'undefined' ? window.location.href : '',
+                    deeplinkCallback: deeplinkCallback,
                     disclosures: {
                         minimumAge: 18,
                         excludedCountries: [countries.UNITED_STATES],
@@ -239,7 +256,7 @@ export default function InitializePage() {
         }
     }, []);
 
-    const _handleClearCache = useCallback(async () => {
+    const handleClearCache = useCallback(async () => {
         try {
             await CachedUltraHonkBackend.clearCache();
             await loadCacheInfo();

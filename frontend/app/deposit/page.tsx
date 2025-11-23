@@ -32,7 +32,8 @@ import { CachedUltraHonkBackend } from '@/lib/cached-ultra-honk-backend';
 import circuit from '@/lib/circuits/nydus_deposit.json';
 import { computeZkAddress, NYDUS_MESSAGE } from '@/lib/zk-address';
 import { NydusAddress, NydusAbi } from '@/lib/abi/NydusConst';
-import { pedersenCommitmentPositive } from '@/lib/pedersen-commitments';
+import { poseidonCtrDecrypt } from '@/lib/poseidon-ctr-encryption';
+import { pedersenCommitmentPositive, grumpkinSubtract } from '@/lib/pedersen-commitments';
 import { loadAccountDataOnSign } from '@/lib/loadAccountDataOnSign';
 import { useNonceDiscovery } from '@/hooks/useNonceDiscovery';
 import { saveAccountData, loadAccountData } from '@/lib/indexeddb';
@@ -43,7 +44,7 @@ import TransactionModal from '@/components/TransactionModal';
 import SyncingModal from '@/components/SyncingModal';
 import { useToast } from '@/components/Toast';
 import TokenSelector from '@/components/TokenSelector';
-import { generateProofRemote } from '@/lib/proof-server';
+import { generateProofRemote, checkProofServerStatus } from '@/lib/proof-server';
 
 export default function DepositPage() {
     const { toast } = useToast();
@@ -103,17 +104,17 @@ export default function DepositPage() {
     const [isCheckingServer, setIsCheckingServer] = useState(false);
     const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
     const [proofError, setProofError] = useState<string | null>(null);
-    const [, setProvingTime] = useState<number | null>(null);
+    const [provingTime, setProvingTime] = useState<number | null>(null);
     const [currentProvingTime, setCurrentProvingTime] = useState<number>(0);
     const [isInitializing, setIsInitializing] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
-    const [_initializationTime, setInitializationTime] = useState<number | null>(null);
+    const [initializationTime, setInitializationTime] = useState<number | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSimulating, setIsSimulating] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
     const [hasTransactionBeenSent, setHasTransactionBeenSent] = useState(false);
     const [txError, setTxError] = useState<string | null>(null);
-    const [, setSimulationResult] = useState<any>(null);
+    const [simulationResult, setSimulationResult] = useState<any>(null);
     const [isCalculatingInputs, setIsCalculatingInputs] = useState(false);
     const [showTransactionModal, setShowTransactionModal] = useState(false);
 
@@ -588,7 +589,7 @@ export default function DepositPage() {
 
             // Declare variables for entry circuit reconstruction (for comparison)
             let entryCTot: { x: bigint; y: bigint } | undefined;
-            let _entryMainCommitment: { x: bigint; y: bigint } | undefined;
+            let entryMainCommitment: { x: bigint; y: bigint } | undefined;
 
             if (previousNonce === BigInt(0)) {
                 // First deposit after entry: need to reconstruct entry circuit's c_tot

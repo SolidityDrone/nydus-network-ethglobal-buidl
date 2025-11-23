@@ -45,7 +45,7 @@ async function getJustaNameInstance(): Promise<JustaName> {
     ] as any,
     config: {
       apiKey: JUSTANAME_API_KEY,
-    } as any,
+    },
   });
 
   return justanameInstance;

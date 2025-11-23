@@ -1613,9 +1613,7 @@ export default function AbsorbPage() {
 
             console.log('Proof generated successfully:', proofHex);
             console.log('Public inputs (sliced to 20):', publicInputsHex);
-            if (provingTime !== null) {
-                console.log(`Total proving time: ${provingTime}ms`);
-            }
+            console.log(`Total proving time: ${provingTimeMs}ms`);
 
         } catch (error) {
             console.error('Error generating proof:', error);

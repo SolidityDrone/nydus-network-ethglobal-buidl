@@ -33,7 +33,7 @@ export default function Navbar() {
     const [isComputing, setIsComputing] = useState(false);
     const [bufferReady, setBufferReady] = useState(false);
     const { openModal } = useAccountModal();
-    const { currentNonce, setCurrentNonce, setBalanceEntries, setUserKey, isSyncing, clearAccountState } = useAccountState();
+    const { currentNonce, setCurrentNonce, setBalanceEntries, setUserKey, isSyncing, setPersonalCommitmentState, getPersonalCommitmentState, clearAccountState } = useAccountState();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [copied, setCopied] = useState(false);
     const [zkAddressModalOpen, setZkAddressModalOpen] = useState(false);
@@ -184,9 +184,9 @@ export default function Navbar() {
                             <Image
                                 src="/nydus_logo.png"
                                 alt="Nydus Logo"
-                                width={156}
-                                height={42}
-                                className="h-[42px] w-auto"
+                                width={120}
+                                height={32}
+                                className="h-8 w-auto"
                                 priority
                             />
                         </Link>

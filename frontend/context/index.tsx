@@ -23,11 +23,11 @@ const metadata = {
 
 // Create the modal
 const celoSepolia = networks[0]
-createAppKit({
+const modal = createAppKit({
     adapters: [wagmiAdapter],
     projectId,
-    networks: networks as any, // Type assertion needed due to AppKitNetwork type mismatch
-    defaultNetwork: celoSepolia as any,
+    networks: networks,
+    defaultNetwork: celoSepolia,
     metadata: metadata,
     features: {
         analytics: true // Optional - defaults to your Cloud configuration

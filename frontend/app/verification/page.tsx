@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { getUniversalLink } from "@selfxyz/core";
 import {
     SelfQRcodeWrapper,
@@ -61,6 +62,23 @@ export default function VerificationPage() {
                     // expiry_date: true,
                 };
 
+                // Determine the appropriate deeplink callback
+                // For MetaMask mobile browser, use origin + pathname to stay in-app
+                let deeplinkCallback = '';
+                if (typeof window !== 'undefined') {
+                    // Check if we're in MetaMask mobile browser
+                    const isMetaMaskMobile = /MetaMaskMobile/i.test(navigator.userAgent) ||
+                        (typeof window !== 'undefined' && (window as any).ethereum && (window as any).ethereum.isMetaMask);
+
+                    if (isMetaMaskMobile) {
+                        // Use origin + pathname to stay within MetaMask browser
+                        deeplinkCallback = window.location.origin + window.location.pathname;
+                    } else {
+                        // For other browsers, use full href
+                        deeplinkCallback = window.location.href;
+                    }
+                }
+
                 const app = new SelfAppBuilder({
                     version: 2, // Always use V2
                     appName: appName || "Nydus",
@@ -71,6 +89,7 @@ export default function VerificationPage() {
                     endpointType: "staging_celo", // "staging_celo" for testnet, "celo" for mainnet
                     userIdType: "hex", // "hex" for Ethereum addresses, "uuid" for UUIDs
                     userDefinedData: address ? `Wallet: ${address}` : "Hola Buenos Aires!!!", // Optional custom data
+                    deeplinkCallback: deeplinkCallback,
                     disclosures: disclosures,
                 }).build();
 
@@ -105,9 +124,18 @@ export default function VerificationPage() {
             <div className="max-w-4xl mx-auto">
                 <Card className="border-[#333333] bg-[#0a0a0a]">
                     <CardHeader>
-                        <CardTitle className="text-2xl sm:text-3xl font-mono font-bold uppercase text-white">
-                            Identity Verification
-                        </CardTitle>
+                        <div className="flex items-center gap-3 mb-2">
+                            <CardTitle className="text-2xl sm:text-3xl font-mono font-bold uppercase text-white">
+                                Identity Verification
+                            </CardTitle>
+                            <Image
+                                src="/SelfLogoWhite.png"
+                                alt="Self Protocol"
+                                width={40}
+                                height={40}
+                                className="rounded-md"
+                            />
+                        </div>
                         <CardDescription className="text-[#888888] font-mono text-sm sm:text-base mt-2">
                             Verify your identity using Self Protocol. Scan the QR code with the Self app to complete verification.
                         </CardDescription>
@@ -133,8 +161,8 @@ export default function VerificationPage() {
                                     <div className="p-4 border border-[#333333] bg-white rounded-lg">
                                         <SelfQRcodeWrapper
                                             selfApp={selfApp}
-                                            onSuccess={handleSuccessfulVerification as any}
-                                            onError={handleVerificationError as any}
+                                            onSuccess={handleSuccessfulVerification}
+                                            onError={handleVerificationError}
                                         />
                                     </div>
                                     <p className="mt-4 text-center text-[#888888] font-mono text-xs sm:text-sm uppercase">
