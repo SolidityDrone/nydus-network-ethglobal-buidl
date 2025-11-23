@@ -183,7 +183,9 @@ export default function Navbar() {
 
                         {/* Wallet Connect & Account Status */}
                         <div className="hidden md:flex items-center space-x-3">
-                            {isConnected && address && (
+                            {!isConnected ? (
+                                <AppKitButton />
+                            ) : isConnected && address && (
                                 <div className="flex items-center space-x-3">
                                     <Button
                                         onClick={openModal}
@@ -256,7 +258,11 @@ export default function Navbar() {
 
                             {/* Wallet Connect & Account Status for Mobile */}
                             <div className="mt-4 pt-4 border-t border-[#333333] space-y-2">
-                                {isConnected && address && (
+                                {!isConnected ? (
+                                    <div className="w-full">
+                                        <AppKitButton />
+                                    </div>
+                                ) : isConnected && address && (
                                     <>
                                         <Button
                                             onClick={() => {

@@ -2,23 +2,30 @@ import { cookieStorage, createStorage, http } from '@wagmi/core'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { defineChain } from 'viem'
 
-// Celo Sepolia chain definition
+// Get RPC URL from environment variable
+const rpcUrl = process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'
+
+// Celo Sepolia chain definition with custom RPC URL
 const celoSepolia = defineChain({
-  id: 11142220,
-  name: 'Celo Sepolia',
-  nativeCurrency: {
-    decimals: 18,
-    name: 'CELO',
-    symbol: 'CELO',
-  },
-  rpcUrls: {
-    default: {
-      http: [process.env.NEXT_PUBLIC_CONTRACT_HOST_RPC || 'https://forno.celo-sepolia.celo-testnet.org'],
+    id: 11142220,
+    name: 'Celo Sepolia',
+    nativeCurrency: {
+        decimals: 18,
+        name: 'CELO',
+        symbol: 'CELO',
     },
-  },
-  blockExplorers: {
-    default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
-  },
+    rpcUrls: {
+        default: {
+            http: [rpcUrl],
+        },
+        public: {
+            http: [rpcUrl],
+        },
+    },
+    blockExplorers: {
+        default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
+    },
+    testnet: true,
 })
 
 // Get projectId from https://cloud.reown.com
@@ -41,3 +48,10 @@ export const wagmiAdapter = new WagmiAdapter({
 })
 
 export const config = wagmiAdapter.wagmiConfig
+
+// Ensure the config uses the correct RPC URL for Celo Sepolia
+// The chain definition already includes the RPC URL, but we can verify it's being used
+if (typeof window !== 'undefined') {
+    console.log('Celo Sepolia RPC URL:', rpcUrl)
+    console.log('Celo Sepolia Chain ID:', celoSepolia.id)
+}

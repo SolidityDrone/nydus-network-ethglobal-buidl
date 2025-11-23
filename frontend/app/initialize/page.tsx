@@ -36,6 +36,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import TransactionModal from '@/components/TransactionModal';
 import { useToast } from '@/components/Toast';
+import { getUniversalLink } from "@selfxyz/core";
+import { SelfQRcodeWrapper, SelfAppBuilder, countries, type SelfApp } from "@selfxyz/qrcode";
+import { ethers } from "ethers";
+
+type Step = 1 | 2 | 3;
 
 export default function InitializePage() {
     const { toast } = useToast();
@@ -44,6 +49,13 @@ export default function InitializePage() {
     const { address } = useWagmiAccount();
     const { signMessageAsync, isPending: isSigning } = useSignMessage();
     const { setCurrentNonce, setBalanceEntries, setUserKey: setContextUserKey, setPersonalCommitmentState, getPersonalCommitmentState } = useAccountState();
+    
+    // 3-step flow state
+    const [currentStep, setCurrentStep] = useState<Step>(1);
+    const [selfApp, setSelfApp] = useState<SelfApp | null>(null);
+    const [universalLink, setUniversalLink] = useState<string>('');
+    const [verificationStatus, setVerificationStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
+    const [countdown, setCountdown] = useState<number>(5);
 
     const [tokenAddress, setTokenAddress] = useState('');
     const [amount, setAmount] = useState('');
@@ -77,6 +89,72 @@ export default function InitializePage() {
     // Backend and Noir references
     const backendRef = useRef<CachedUltraHonkBackend | null>(null);
     const noirRef = useRef<Noir | null>(null);
+
+    // Initialize Self Protocol App
+    React.useEffect(() => {
+        if (!address) return;
+
+        const initializeSelfApp = async () => {
+            try {
+                const endpoint = process.env.NEXT_PUBLIC_SELF_ENDPOINT;
+                const scope = process.env.NEXT_PUBLIC_SELF_SCOPE_SEED;
+                const appName = process.env.NEXT_PUBLIC_SELF_APP_NAME;
+
+                if (!endpoint || !scope) {
+                    throw new Error('Self Protocol environment variables not configured');
+                }
+
+                const app = new SelfAppBuilder({
+                    version: 2,
+                    appName: appName || "Nydus",
+                    scope: scope,
+                    endpoint: endpoint.toLowerCase(),
+                    logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png",
+                    userId: address,
+                    endpointType: "staging_celo",
+                    userIdType: "hex",
+                    userDefinedData: `Wallet: ${address}`,
+                    deeplinkCallback: typeof window !== 'undefined' ? window.location.href : '',
+                    disclosures: {
+                        minimumAge: 18,
+                        excludedCountries: [countries.UNITED_STATES],
+                        ofac: true,
+                    },
+                }).build();
+
+                setSelfApp(app);
+                const deeplink = getUniversalLink(app);
+                setUniversalLink(deeplink);
+            } catch (error) {
+                console.error("Failed to initialize Self app:", error);
+                toast('Failed to initialize Self verification', 'error');
+            }
+        };
+
+        initializeSelfApp();
+    }, [address, toast]);
+
+    // Countdown timer for step 2
+    React.useEffect(() => {
+        if (currentStep !== 2) {
+            setCountdown(5);
+            return;
+        }
+
+        const timer = setInterval(() => {
+            setCountdown((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    setCurrentStep(3);
+                    toast('Ready to initialize!', 'success');
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [currentStep, toast]);
 
     // Real-time timer for proving
     React.useEffect(() => {
@@ -568,21 +646,133 @@ export default function InitializePage() {
         }
     }, [writeError]);
 
-    return (
-        <div className="min-h-screen pt-20 sm:pt-24 pb-8 sm:pb-12 px-3 sm:px-4 lg:px-6">
-            <div className="max-w-2xl mx-auto">
-                <Card>
-                    <CardHeader className="border-b border-[#333333] bg-black/50 py-3 px-3 sm:px-4 mb-4">
-                        <div className="flex items-center gap-2 justify-center mb-1">
-                            <div className="w-1 h-4 bg-[rgba(182,255,62,1)]"></div>
-                            <CardTitle className="text-center text-base sm:text-xl font-mono uppercase">INITIALIZE</CardTitle>
-                        </div>
-                        <CardDescription className="text-center text-xs sm:text-sm font-mono">SET UP YOUR PRIVATE ACCOUNT</CardDescription>
+    // Self Protocol verification handlers
+    const handleSuccessfulVerification = (result: any) => {
+        console.log("Verification successful!", result);
+        setVerificationStatus('success');
+        toast('Identity verification successful!', 'success');
+        setCurrentStep(2);
+    };
+
+    const handleVerificationError = (error: any) => {
+        console.error("Verification error:", error);
+        setVerificationStatus('error');
+        toast('Verification failed. Please try again.', 'error');
+    };
+
+    // Render step content
+    const renderStepContent = () => {
+        // Step 1: Self Protocol Verification
+        if (currentStep === 1) {
+            if (!address) {
+                return (
+                    <Card className="border-[#333333] bg-[#0a0a0a]">
+                        <CardContent className="pt-6">
+                            <p className="text-center text-[#888888] font-mono text-sm uppercase">
+                                Please connect your wallet to start verification
+                            </p>
+                        </CardContent>
+                    </Card>
+                );
+            }
+
+            if (!selfApp) {
+                return (
+                    <Card className="border-[#333333] bg-[#0a0a0a]">
+                        <CardContent className="pt-6">
+                            <div className="flex flex-col items-center justify-center py-12">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgba(182,255,62,1)] mb-4"></div>
+                                <p className="text-[#888888] font-mono text-sm uppercase">Initializing Verification...</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                );
+            }
+
+            const handleOpenSelf = () => {
+                if (universalLink) {
+                    window.open(universalLink, '_blank');
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <Card className="border-[#333333] bg-[#0a0a0a]">
+                        <CardHeader>
+                            <CardTitle className="text-xl font-mono font-bold uppercase text-white">
+                                Step 1: Identity Verification
+                            </CardTitle>
+                            <CardDescription className="text-[#888888] font-mono text-sm mt-2">
+                                Verify your identity using Self Protocol. Use the button below (mobile) or scan the QR code (desktop) with the Self app.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            {/* Mobile: Deep Link Button */}
+                            <div className="md:hidden flex flex-col items-center space-y-4">
+                                <Button
+                                    onClick={handleOpenSelf}
+                                    disabled={!universalLink}
+                                    className="w-full bg-[rgba(182,255,62,1)] hover:bg-[rgba(182,255,62,0.8)] text-black font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Open Self App
+                                </Button>
+                                {universalLink && (
+                                    <p className="text-center text-[#888888] font-mono text-xs uppercase">
+                                        Tap to open Self app for verification
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Desktop: QR Code */}
+                            <div className="hidden md:flex flex-col items-center">
+                                <div className="p-4 border border-[#333333] bg-white rounded-lg">
+                                    <SelfQRcodeWrapper
+                                        selfApp={selfApp}
+                                        onSuccess={handleSuccessfulVerification}
+                                        onError={handleVerificationError}
+                                    />
+                                </div>
+                                <p className="mt-4 text-center text-[#888888] font-mono text-xs sm:text-sm uppercase">
+                                    Scan with Self App
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            );
+        }
+
+        // Step 2: Waiting 5 seconds before allowing initialization
+        if (currentStep === 2) {
+            return (
+                <Card className="border-[#333333] bg-[#0a0a0a]">
+                    <CardHeader>
+                        <CardTitle className="text-xl font-mono font-bold uppercase text-white">
+                            Step 2: Processing Verification
+                        </CardTitle>
+                        <CardDescription className="text-[#888888] font-mono text-sm mt-2">
+                            Your verification is being processed. Please wait...
+                        </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-3 sm:p-6">
-                        <div className="space-y-3 sm:space-y-4">
-                            {/* Sign Message Button - Show if no zkAddress */}
-                            {!zkAddress && (
+                    <CardContent className="pt-6">
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <div className="text-4xl font-mono font-bold text-[rgba(182,255,62,1)] mb-4">
+                                {countdown}
+                            </div>
+                            <p className="text-[#888888] font-mono text-sm uppercase">
+                                {countdown > 0 ? 'Preparing initialization...' : 'Ready to initialize!'}
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            );
+        }
+
+        // Step 3: Initialize (existing initialization flow)
+        return (
+            <div className="space-y-3 sm:space-y-4">
+                {/* Sign Message Button - Show if no zkAddress */}
+                {!zkAddress && (
                                 <Button
                                     onClick={handleSign}
                                     disabled={isLoading || isSigning}
@@ -810,6 +1000,26 @@ export default function InitializePage() {
                                 </Card>
                             )}
                         </div>
+            );
+    };
+
+    return (
+        <div className="min-h-screen pt-20 sm:pt-24 pb-8 sm:pb-12 px-3 sm:px-4 lg:px-6">
+            <div className="max-w-2xl mx-auto">
+                <Card>
+                    <CardHeader className="border-b border-[#333333] bg-black/50 py-3 px-3 sm:px-4 mb-4">
+                        <div className="flex items-center gap-2 justify-center mb-1">
+                            <div className="w-1 h-4 bg-[rgba(182,255,62,1)]"></div>
+                            <CardTitle className="text-center text-base sm:text-xl font-mono uppercase">INITIALIZE</CardTitle>
+                        </div>
+                        <CardDescription className="text-center text-xs sm:text-sm font-mono">
+                            {currentStep === 1 && 'STEP 1: VERIFY YOUR IDENTITY'}
+                            {currentStep === 2 && 'STEP 2: WAITING FOR ON-CHAIN CONFIRMATION'}
+                            {currentStep === 3 && 'STEP 3: SET UP YOUR PRIVATE ACCOUNT'}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-6">
+                        {renderStepContent()}
                     </CardContent>
                 </Card>
             </div>

@@ -5,9 +5,11 @@ export function middleware(request: NextRequest) {
     // Create response
     const response = NextResponse.next();
 
-    // Add COOP/COEP headers for SharedArrayBuffer support
+    // Add COEP header for SharedArrayBuffer support
+    // Note: COOP is set to 'unsafe-none' to allow Base Account SDK and WalletConnect to work
+    // Base Account SDK requires COOP to NOT be 'same-origin'
     response.headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
-    response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+    response.headers.set('Cross-Origin-Opener-Policy', 'unsafe-none');
     response.headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
 
     return response;
