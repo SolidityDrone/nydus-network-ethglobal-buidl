@@ -1,10 +1,12 @@
 # Nydus Network
 
 A privacy-preserving payment protocol built on Celo Sepolia using zero-knowledge proofs, Pedersen commitments, and elliptic curve cryptography.
-
+**This project was submitted at ETHGlobal as an personal otter project and workend to add features and is currently in ALPHA/TEST BUILD status.**
 ## ⚠️ IMPORTANT DISCLAIMER
 
-**This project was submitted at ETHGlobal as an personal otter project and workend to add features and is currently in ALPHA/TEST BUILD status.**
+
+** Due to a known vulnerability that involves tampering, this project is declared WIP as i'm investigating wheter or not honest pedersen decomposition can be enforced efficently. **
+
 
 ### ⛔️ NOT FOR PRODUCTION USE
 
@@ -69,9 +71,9 @@ The cryptographic circuits implemented in Noir that power the privacy features.
 - Pedersen vector commitments (3-generator system)
 - Diffie-Hellman key exchange on Baby Jubjub curve
 - Poseidon CTR encryption for transaction details
-- Inner/outer product structure for efficient verification
 
-**Technical Highlights:**
+
+-**Technical Highlights:**
 - No Merkle trees - uses commitment stacks instead
 - Constant-time operations (O(1) gas cost)
 - Efficient in both ZK circuits and Solidity
