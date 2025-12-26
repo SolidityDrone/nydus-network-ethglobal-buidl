@@ -5,7 +5,7 @@ A privacy-preserving payment protocol built on Celo Sepolia using zero-knowledge
 ## ⚠️ IMPORTANT DISCLAIMER
 
 
-** Due to a known vulnerability that involves tampering, this project is declared WIP as i'm investigating wheter or not honest pedersen decomposition can be enforced efficently. **
+**Due to a known vulnerability that involves tampering, this project is declared WIP as i'm investigating wheter or not honest pedersen decomposition can be enforced efficently.**
 
 
 ### ⛔️ NOT FOR PRODUCTION USE
